@@ -398,7 +398,7 @@ def build(root: Path, transition: str) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a compact v0.5 cross-stage handoff")
+    parser = argparse.ArgumentParser(description="Build a compact v0.6 cross-stage handoff")
     parser.add_argument("--project", required=True, type=Path)
     parser.add_argument("--transition", required=True, choices=sorted(TRANSITIONS))
     args = parser.parse_args()

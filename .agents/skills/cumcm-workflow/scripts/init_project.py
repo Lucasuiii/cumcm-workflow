@@ -260,7 +260,7 @@ def initialize(project: Path, project_id: str, official: Path) -> dict[str, Any]
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Create a complete v0.5 CUMCM workspace from official inputs and run intake preflight"
+        description="Create a complete v0.6 CUMCM workspace from official inputs and run intake preflight"
     )
     parser.add_argument("--project", required=True, type=Path, help="new or empty project directory")
     parser.add_argument("--project-id", required=True, help="stable project identifier, for example CUMCM-2026-B")

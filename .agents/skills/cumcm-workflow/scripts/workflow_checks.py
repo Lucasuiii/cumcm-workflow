@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic v0.5 evidence, freshness, and cross-artifact checks.
+"""Deterministic v0.6 evidence, freshness, and cross-artifact checks.
 
 The checks in this module establish structure, provenance, recorded execution,
 and declared relationships. They do not establish mathematical correctness.

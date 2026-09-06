@@ -108,7 +108,7 @@ def validate_inputs(project: Path) -> tuple[dict[str, Any], dict[str, Any], dict
     facts = read_object(project / "analysis" / "PROBLEM_FACTS.json")
     plan = read_object(project / "paper" / "PAPER_PLAN.json")
     if state.get("workflow_version") != WORKFLOW_VERSION or state.get("schema_version") != WORKFLOW_VERSION:
-        raise ValueError("LaTeX initialization requires an exact v0.5 workflow state")
+        raise ValueError("LaTeX initialization requires an exact v0.6 workflow state")
     project_ids = {state.get("project_id"), facts.get("project_id"), plan.get("project_id")}
     if None in project_ids or len(project_ids) != 1:
         raise ValueError("state, problem facts, and paper plan must share one project_id")
