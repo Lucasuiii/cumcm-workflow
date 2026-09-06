@@ -219,7 +219,7 @@ def main() -> int:
     failures = [item["check_id"] for item in checks if item["status"] == "fail"]
     print(f"compiled {pdf_rel}: {pages_total} page(s), {len(rendered)} rendered, checks {'ok' if not failures else 'FAILED: ' + ', '.join(failures)}")
     if rendered:
-        print(f"page images: .cumcm/tmp/pages/ -- look at them before accepting the layout review")
+        print(f"page images: .cumcm/tmp/pages/ -- these are what DELIVERY_MANIFEST.final_check must present")
     return 0
 
 

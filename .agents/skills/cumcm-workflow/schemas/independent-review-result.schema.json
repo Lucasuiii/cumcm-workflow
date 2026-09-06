@@ -94,12 +94,6 @@
             "null"
           ]
         },
-        "selected_by_user": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
         "independence_grade": {
           "enum": [
             "independent",

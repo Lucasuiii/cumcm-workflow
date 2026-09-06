@@ -717,6 +717,46 @@ class CompileRecorderTests(unittest.TestCase):
             self.assertTrue((project / attempt["pdf_path"]).is_file())
             self.assertTrue((project / "delivery" / "compile.log").is_file())
 
+    @unittest.skipIf(shutil.which("xelatex") is None, "xelatex is not installed")
+    def test_update_quality_refreshes_the_layout_report_machine_fields(self):
+        """The recorder writes the report block; nothing else may hand-write these."""
+        with tempfile.TemporaryDirectory() as temp:
+            project = make_project(Path(temp))
+            (project / "paper").mkdir(exist_ok=True)
+            (project / "paper" / "main.tex").write_text(MINIMAL_TEX, encoding="utf-8")
+            manifest = envelope("latex_template_manifest")
+            manifest.update({
+                "template_id": "test-minimal", "template_version": "0.6.0", "mode": "contest_ctex",
+                "engine": "xelatex", "competition": "CUMCM", "competition_year": 2026,
+                "official_compliance": "unverified", "official_template_source": None,
+                "main_path": "paper/main.tex", "metadata_path": "paper/main.tex",
+                "section_files": [], "subproblem_sections": [], "required_files": ["paper/main.tex"],
+                "placeholder_markers": ["CUMCM-TODO"], "template_source": "test",
+            })
+            write_json(project, "paper/LATEX_TEMPLATE_MANIFEST.json", manifest)
+            stale = {"path": "paper/main.pdf", "sha256": "0" * 64}
+            quality = envelope("paper_quality_report")
+            quality.update({
+                "paper_status": "candidate",
+                "paper_artifact": stale,
+                "content_report": {"artifact": stale, "summary": "draft", "questions": [
+                    {"subproblem_id": "Q1", "status": "pass", "notes": "answered"}]},
+                "layout_report": {"artifact": stale, "page_count": 99, "rendered_pages": [], "checks": []},
+                "open_issues": [],
+            })
+            write_json(project, "paper/PAPER_QUALITY_REPORT.json", quality)
+            compiled = run_script("record_compile.py", "--project", str(project), "--update-quality")
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            self.assertIn("layout_report", compiled.stdout)
+            refreshed = json.loads((project / "paper" / "PAPER_QUALITY_REPORT.json").read_text(encoding="utf-8"))
+            layout = refreshed["layout_report"]
+            self.assertEqual(layout["page_count"], 1)
+            self.assertEqual(layout["rendered_pages"], [1])
+            self.assertTrue(layout["checks"])
+            self.assertNotEqual(layout["artifact"]["sha256"], stale["sha256"])
+            self.assertEqual(refreshed["paper_artifact"], layout["artifact"])
+            self.assertNotIn("layout_review", refreshed)
+
     @unittest.skipUnless(ctex_available(), "the ctex document class is not installed")
     def test_record_compile_derives_page_count_and_layout_checks_from_the_engine(self):
         with tempfile.TemporaryDirectory() as temp:

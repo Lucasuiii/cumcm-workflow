@@ -121,12 +121,6 @@
             "recorded"
           ]
         },
-        "selected_by": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "reviewer": {
           "type": [
             "string",

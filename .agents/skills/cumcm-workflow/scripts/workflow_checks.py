@@ -1080,7 +1080,7 @@ def check_independent_review_package(data: Any, root: Path, path: str) -> list[F
             findings.append(finding("IREVIEW-E018", "error", "semantic", "validation", path, "targeted re-review requires previous-review provenance and a self-contained target P0 finding brief"))
     selection = data.get("reviewer_selection")
     if not isinstance(selection, dict) or selection.get("status") != "recorded":
-        findings.append(finding("IREVIEW-E005", "error", "structural", "validation", path, "the review package must record which task reviews it before validation"))
+        findings.append(finding("IREVIEW-E005", "error", "structural", "validation", path, "the review package must record which task reviews it before validation", gate_only=True))
     elif not all(nonempty(selection.get(field)) for field in ("reviewer", "originating_task_ref", "task_ref")):
         findings.append(finding("IREVIEW-E006", "error", "structural", "validation", path, "recorded reviewer selection lacks reviewer, originating-task, or reviewer-task reference"))
     elif selection.get("originating_task_ref") == selection.get("task_ref"):
@@ -1183,6 +1183,7 @@ def check_conclusion_check(data: dict[str, Any], path: str) -> list[Finding]:
         findings.append(finding("CLAIM-E022", "error", "semantic", "validation", path, "an accepted conclusion check lacks reviewer or review time"))
     presented = {str(item) for item in as_list(check.get("presented_claim_ids"))}
     declared = {item_id(claim, "claim_id") for claim in as_list(data.get("claims")) if isinstance(claim, dict)}
+    declared.discard("")
     unseen = sorted(declared - presented)
     if unseen:
         findings.append(finding("CLAIM-E023", "error", "semantic", "validation", path, f"conclusions were accepted without being presented: {', '.join(unseen)}", related_ids=unseen))
@@ -1363,7 +1364,7 @@ def check_final_check(data: dict[str, Any], path: str, compile_record: Any) -> l
     """
     findings: list[Finding] = []
     check = data.get("final_check")
-    if not isinstance(check, dict) or check.get("decision") not in ("accepted", "accepted_with_concerns"):
+    if not isinstance(check, dict) or check.get("decision") != "accepted":
         findings.append(finding("DELIVERY-E011", "error", "semantic", "delivery", path, "the final check before submission must be accepted", gate_only=True))
         return findings
     if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
