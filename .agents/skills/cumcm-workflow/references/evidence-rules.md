@@ -3,7 +3,7 @@
 ## Three levels
 
 - Hard invariant / P0: affects truth, provenance, reproducibility, task coverage, or final submission identity. Block it.
-- Warning / P1: affects model strength or reader confidence but does not show the result is false. Keep it visible.
+- Warning / P1: affects model strength or reader confidence inside the range the claim actually covers, and does not show the result is false. Keep it visible. A claim that reaches past what was verified is not P1; that is a consistency failure and belongs in P0.
 - Suggestion / P2: optional expression, layout, or extra analysis. Do not gate on it.
 
 File existence proves existence. Schema validity proves structure. Successful execution proves a process ran. None proves that the model matches the task. Exact locators and hashes establish identity, not mathematical correctness.

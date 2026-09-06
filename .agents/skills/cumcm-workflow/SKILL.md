@@ -108,8 +108,8 @@ Project state defaults to `{"preferred":"matlab","fallback":"python","selection"
 
 ## Evidence gates
 
-- hard invariant / `P0`: wrong data or computation, task mismatch, unsupported key claim, code/result disagreement, stale provenance, fabricated approval or review, simulated data presented as observed, final-version mismatch. These block.
-- warning / `P1`: strong assumptions, weak baseline, incomplete validation or sensitivity, limited fit, thin section. Visible, never blocking.
+- hard invariant / `P0`: wrong data or computation, task mismatch, a claim whose declared scope exceeds the range actually verified, code/result/paper disagreement, an assumption contradicting a stated condition, stale provenance, fabricated approval or review, simulated data presented as observed, final-version mismatch. These block.
+- warning / `P1`, judged inside the verified range: strong assumptions, weak baseline, thinner validation or sensitivity than ideal, limited fit, thin section. Visible, never blocking.
 - suggestion / `P2`: wording, layout, optional chart, extra experiment. Not in the gate.
 
 Independent validation uses `accepted`, `accepted_with_concerns`, `revision_required`, `inconclusive`. Only an open P0 permits `revision_required`. After a full review finds P0 issues, the next package defaults to a targeted re-review of exactly those findings.

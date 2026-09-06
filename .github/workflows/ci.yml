@@ -46,7 +46,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends \
             texlive-xetex texlive-lang-chinese texlive-latex-recommended \
-            texlive-fonts-recommended poppler-utils
+            texlive-fonts-recommended texlive-pictures poppler-utils
       # Run the whole suite: the recorder tests are the ones that need an engine,
       # but a name pattern silently matches nothing after a rename, so don't use one.
       - run: python -m unittest discover -s tests -p 'test_*.py' -v

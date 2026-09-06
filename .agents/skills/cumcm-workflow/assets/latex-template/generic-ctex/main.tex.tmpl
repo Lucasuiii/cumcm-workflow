@@ -6,6 +6,11 @@
 \usepackage{booktabs,longtable,tabularx,array,multirow}
 \usepackage{graphicx,float,caption,subcaption}
 \usepackage{xcolor,enumitem,microtype}
+% Mechanism sketches, flowcharts and state diagrams are drawn, not plotted. The
+% packages are loaded so drawing one costs nothing; whether a figure belongs at
+% all is decided per claim in PAPER_PLAN.representation_plan, never by this file.
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,backgrounds}
 \usepackage[hidelinks]{hyperref}
 
 \input{metadata}
@@ -21,6 +26,8 @@
   subsubsection={beforeskip=1.0ex plus .2ex,afterskip=.4ex,format=\zihao{-4}\bfseries}
 }
 \captionsetup{font=small,labelfont=bf,labelsep=quad,justification=centering,singlelinecheck=true,skip=6pt}
+\captionsetup[table]{position=top}
+\captionsetup[figure]{position=bottom}
 \setlist{nosep,leftmargin=2.2em}
 \setlength{\abovedisplayskip}{8pt plus 2pt minus 2pt}
 \setlength{\belowdisplayskip}{8pt plus 2pt minus 2pt}

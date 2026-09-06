@@ -15,11 +15,13 @@ Treat handoff `representation_candidates` as prompts for judgment, not a prescri
 
 `paper_structure` is the source of truth for the body. Each entry supplies a section title, purpose, covered subproblems, and supported claims. One section may serve several subproblems; one complex subproblem may span several mathematically meaningful sections. Background, restatement, assumptions, notation, shared mechanisms, model development, results, validation, evaluation, and conclusions are candidate modules—not mandatory headings. Cover every official subproblem, but do not manufacture sections to imitate a generic modeling paper.
 
+Sections are not independent essays stapled together. Each one states, in its opening sentence or two, why the previous section made it necessary: a quantity the previous model left unknown, an approximation that has to be checked, a decision the previous result did not settle. Questions that are formally independent are still tied together by the shared object, data, or mechanism they act on. A reader should be able to say what breaks if a section is removed. This costs a sentence per section and it is the difference between an argument and a list.
+
 `PAPER_PLAN.json` still needs only `claim_selection`, `representation_plan`, and `paper_structure`. Legacy argument layers, reference-paper counts, page budgets, and figure counts may remain optional notes but are not hard gates. A plan with no table/figure creates a warning to reconsider communication, not a failure.
 
 ## Abstract and keywords
 
-Write the abstract after the body stabilizes. Use the order problem -> core method -> key result -> meaning/validation. For a quantitative task, include a few decision-bearing numerical anchors with units, comparison, uncertainty, or fit information when supported. Avoid empty sequences such as “a model is built for Question 1; Question 2 is solved; results show effectiveness.”
+Write the abstract after the body stabilizes. Use the order problem -> core method -> key result -> meaning/validation. For a quantitative task, include a few decision-bearing numerical anchors with units, comparison, uncertainty, or fit information when supported. Wrap the values that ARE the answer in `\keyresult{}` so a reader skimming the abstract finds them without parsing the sentences around them; use it in the body's result statements too. Bold the answer, not every number on the page — marking everything marks nothing. Avoid empty sequences such as “a model is built for Question 1; Question 2 is solved; results show effectiveness.”
 
 Keywords must come from the actual object, data, model, or method. Do not use workflow filler such as “mathematical modeling,” “reproducible computation,” or “evidence chain.”
 
@@ -32,7 +34,7 @@ Every representation answers one reading or evidence question:
 - comparison plots support method, scenario, or policy choice;
 - sensitivity/convergence plots support parameter or algorithm stability;
 - robustness distributions support noise or perturbation claims;
-- mechanism/algorithm diagrams clarify a genuinely complex process;
+- mechanism/algorithm diagrams clarify a genuinely complex process. These are drawn, not plotted: an optical path, a four-stage decision flow with a rework loop, a state transition, an algorithm's stages. They need no data, which is exactly why they get skipped — an author reaching for matplotlib finds nothing to plot and moves on. The scaffold loads TikZ so drawing one costs nothing;
 - compact tables carry values that readers must compare or retrieve precisely.
 
 These are options, not a checklist. Do not require every kind, impose a minimum count, or invent residual, Monte Carlo, sensitivity, convergence, or robustness analyses that computation/validation did not execute. The initializer never decides what to plot.
@@ -40,6 +42,8 @@ These are options, not a checklist. Do not require every kind, impose a minimum 
 ## Result -> validation -> boundary
 
 After a result, explain what makes it credible, where it weakens, and what changes the conclusion. Prefer already available residual/error analysis, feasibility or constraint checks, sensitivity, convergence, stability/robustness, baseline/model comparison, or out-of-sample evidence. If an important check is missing, state a concern or limitation; the paper stage must not create a new numerical experiment merely to complete the narrative.
+
+Distinguish the two kinds of cross-check and say which one you have. Computing the same quantity twice through the same model — a closed form against a truncated series, a vectorized implementation against a loop — agrees to machine precision and shows only that the code matches the derivation. Computing it through a second, independent route — a different physical principle, a different estimator, a different data channel — produces a real discrepancy that has to be explained, and that explanation is what convinces a reader the model is right. Implementation agreement is the floor. Do not present it as model validation.
 
 When model evaluation is useful, distinguish strengths, limitations, and possible improvements. Tie each point to the actual mechanism, assumption, data region, parameter identifiability issue, sensitive perturbation, or missing data. Prefer claim limitations and accepted/open P1 concerns over generic claims that a model is simple, accurate, general, or practically meaningful.
 

@@ -1,0 +1,30 @@
+# Figure conventions for a CUMCM paper rendered at ~0.8 textwidth in a 12pt ctexart.
+# Point matplotlib at this file before drawing:
+#   import matplotlib.pyplot as plt; plt.style.use("<skill>/assets/plot-style/cumcm.mplstyle")
+# Then set a CJK family that exists on the machine, e.g.
+#   plt.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "SimHei", "PingFang SC"]
+figure.figsize: 6.0, 3.6
+figure.dpi: 200
+savefig.dpi: 300
+savefig.bbox: tight
+savefig.pad_inches: 0.02
+font.size: 10
+axes.titlesize: 10
+axes.labelsize: 10
+xtick.labelsize: 9
+ytick.labelsize: 9
+legend.fontsize: 9
+axes.unicode_minus: False
+axes.grid: True
+axes.axisbelow: True
+grid.alpha: 0.25
+grid.linewidth: 0.6
+axes.spines.top: False
+axes.spines.right: False
+axes.linewidth: 0.8
+lines.linewidth: 1.6
+lines.markersize: 3.5
+legend.frameon: True
+legend.framealpha: 0.9
+legend.edgecolor: 0.8
+axes.prop_cycle: cycler('color', ['1f77b4', 'd62728', '2ca02c', 'ff7f0e', '9467bd', '8c564b'])
