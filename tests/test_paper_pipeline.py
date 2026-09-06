@@ -684,6 +684,30 @@ class CapabilityDeliveryTests(unittest.TestCase):
             codes = {item.rule_id for item in check_project(root, "delivery")[0]}
             self.assertIn("CAP-E012", codes)
 
+    def test_a_superseded_run_stops_vouching_for_the_code_that_replaced_it(self):
+        """record_run.py will not inherit a parent's assertions; the checker must agree."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            parent = json.loads((root / "runs" / "RUN-Q1-001" / "RUN_MANIFEST.json").read_text(encoding="utf-8"))
+            child = json.loads(json.dumps(parent))
+            child["run_id"] = "RUN-Q1-002"
+            child["parent_run_id"] = "RUN-Q1-001"
+            child["assertions"] = []          # the replacing code verifies nothing
+            child["stdout_path"] = "runs/RUN-Q1-002/stdout.log"
+            child["stderr_path"] = "runs/RUN-Q1-002/stderr.log"
+            (root / "runs" / "RUN-Q1-002").mkdir(parents=True, exist_ok=True)
+            for name in ("stdout", "stderr"):
+                (root / "runs" / "RUN-Q1-002" / f"{name}.log").write_text("", encoding="utf-8")
+            write_json(root, "runs/RUN-Q1-002/RUN_MANIFEST.json", child)
+            codes = {item.rule_id for item in check_project(root, "delivery")[0]}
+            self.assertIn("CAP-E012", codes)
+            self.assertIn("MODEL-E009", codes)
+            # the superseded run is still an official run for every other consumer, so
+            # citing it stays the precise finding rather than degrading to "unknown run"
+            self.assertIn("RESULT-E017", codes)
+            self.assertNotIn("RESULT-E016", codes)
+
     def test_a_capability_no_model_takes_on_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

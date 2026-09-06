@@ -2292,9 +2292,17 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
                         if isinstance(item, dict) and nonempty(item.get("name"))
                         and item.get("source") == "recorded" and item.get("passed") is True
                     }
-                    for capability_id in as_list(run.get("capability_ids")):
-                        capability_assertions.setdefault(str(capability_id), set()).update(names)
-                        capability_passed_assertions.setdefault(str(capability_id), set()).update(passed_names)
+                    # A run a later official run replaced verified the code it ran, not
+                    # the code that replaced it. record_run.py already refuses to inherit
+                    # a parent's assertions for that reason; the checker has to agree, or
+                    # a superseded pass keeps satisfying a verification plan forever. The
+                    # run stays an official run for every other consumer, so that citing
+                    # it still reports the precise "superseded" finding rather than
+                    # degrading into "unknown run".
+                    if run["run_id"] not in superseded_ids:
+                        for capability_id in as_list(run.get("capability_ids")):
+                            capability_assertions.setdefault(str(capability_id), set()).update(names)
+                            capability_passed_assertions.setdefault(str(capability_id), set()).update(passed_names)
                 executed_capability_ids.update(str(value) for value in as_list(run.get("capability_ids")))
                 run_candidates[run["run_id"]] = {str(value) for value in as_list(run.get("candidate_ids"))}
                 if is_official:
