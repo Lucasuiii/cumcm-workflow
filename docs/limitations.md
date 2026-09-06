@@ -12,6 +12,8 @@
 - Generic LaTeX scaffold 与具体年份提交格式无关。官方材料角色依赖 intake metadata：明确的 paper template 会优先采用/适配，规则说明只保留为合规输入；未正确分类的材料会保持 `unclassified`，最终仍需人工确认并逐页 QA。
 - `paper_structure` 与通用间距能改善初始骨架，但不能预测真实长文中的 float 漂移、跨页表格、局部页面过空/过密或图中文字可读性；这些仍需下一次完整 CUMCM PDF 与质量参考进行人工逐页对比。
 - 候选比较只能验证形式：恰好一个 selected、有理由、引用了真实运行。它无法判断你的 `discriminating_evidence` 是否真的能区分两个模型，也无法判断被淘汰的候选是不是其实更好——那是数学判断，属于独立复核。
+- `acceptance_checks` 判为 `recorded` 的那些，现在是可机器判定的：求解程序必须自己写出同名断言，`CAP-E012` 核对它确实以 `source: "recorded"` 且 `passed: true` 出现在该能力的 official run 里。但**判据本身仍是人写的**——把"做到了"定义成一件太容易满足的事，机器照样放行。判为 `human` 的那些完全交给复核。
+- 能力覆盖检查看的是"有没有模型认领、有没有在论文定稿时还没做完"。它看不出**清单本身漏列了题目要求的能力**——那取决于赛题分析阶段的理解力，是这条链最上游、也最不可机器化的一环。
 - 冻结后的 `MODEL_CONTRACT` 可能退化成对已写好代码的事后描述。机器只能检查 `verification_plan` 是否对应到已记录的断言；"这是设计承诺还是代码转录"是 `REVIEW_REQUEST.md` 里点名的失败类，只能由 fresh-context reviewer 判断。
 - `record_compile.py` 的 layout checks 来自编译日志，能发现 overfull box、未定义引用、缺字和字体错误，但发现不了"图中文字太小""这张表放错了位置"这类只有看图才知道的问题。逐页 PNG 已经渲染到 `.cumcm/tmp/pages/`，仍然需要人去看。
 - claim 输出"是否由本次运行产生"靠执行前后的 mtime 判断。这挡得住"程序 exit 0 却没写文件"这类**疏漏**，挡不住有人先 `touch` 再跑——而在文件系统这一层，"被 touch 过的旧文件"和"确定性程序重写出的同样字节"本来就无法区分，任何本地检查都做不到。manifest 里记录了该输出运行前是否已存在（`preexisting`），供复核者事后判断；真正的边界仍然是：绕过 recorder 的行为，recorder 管不了。

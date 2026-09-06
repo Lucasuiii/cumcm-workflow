@@ -639,5 +639,102 @@ class HumanCheckpointTests(unittest.TestCase):
                 self.assertNotIn(gone, codes)
 
 
+class CapabilityDeliveryTests(unittest.TestCase):
+    """The task shrinking until it fits what the agent can do is not visible downstream.
+
+    Every check after model design verifies faithfulness to the reading that was written
+    down, so none of them can see that the reading itself was narrowed.
+    """
+
+    def test_a_recorded_acceptance_check_needs_a_run_that_recorded_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "runs" / "RUN-Q1-001" / "RUN_MANIFEST.json"
+            run = json.loads(path.read_text(encoding="utf-8"))
+            run["assertions"] = [a for a in run["assertions"] if a["name"] != "enumeration_covers_policy_class"]
+            write_json(root, "runs/RUN-Q1-001/RUN_MANIFEST.json", run)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "CAP-E012"]
+            self.assertEqual(len(hit), 1)
+            self.assertIn("enumeration_covers_policy_class", hit[0].message)
+
+    def test_a_failing_assertion_does_not_deliver_the_capability(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "runs" / "RUN-Q1-001" / "RUN_MANIFEST.json"
+            run = json.loads(path.read_text(encoding="utf-8"))
+            for assertion in run["assertions"]:
+                if assertion["name"] == "enumeration_covers_policy_class":
+                    assertion["passed"] = False
+            write_json(root, "runs/RUN-Q1-001/RUN_MANIFEST.json", run)
+            codes = {item.rule_id for item in check_project(root, "delivery")[0]}
+            self.assertIn("CAP-E012", codes)
+
+    def test_a_declared_verdict_does_not_deliver_the_capability(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "runs" / "RUN-Q1-001" / "RUN_MANIFEST.json"
+            run = json.loads(path.read_text(encoding="utf-8"))
+            for assertion in run["assertions"]:
+                if assertion["name"] == "enumeration_covers_policy_class":
+                    assertion["source"] = "declared"
+            write_json(root, "runs/RUN-Q1-001/RUN_MANIFEST.json", run)
+            codes = {item.rule_id for item in check_project(root, "delivery")[0]}
+            self.assertIn("CAP-E012", codes)
+
+    def test_a_capability_no_model_takes_on_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "model" / "MODEL_CONTRACT.json"
+            model = json.loads(path.read_text(encoding="utf-8"))
+            model["components"][0]["capability_ids"] = []
+            write_json(root, "model/MODEL_CONTRACT.json", model)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "CAP-E013"]
+            self.assertEqual(len(hit), 1)
+            self.assertIn("CAP-Q1-001", hit[0].message)
+
+    def test_the_paper_cannot_be_final_while_a_capability_is_unfinished(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "analysis" / "TASK_CAPABILITIES.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["capabilities"][0]["lifecycle_state"] = "blocked"
+            write_json(root, "analysis/TASK_CAPABILITIES.json", data)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "CAP-E014"]
+            self.assertEqual(len(hit), 1)
+            self.assertIn("CAP-Q1-001", hit[0].message)
+
+    def test_an_exploratory_run_is_not_nagged_for_fields_it_cannot_have(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            explore = {
+                "schema_version": "0.6.0", "artifact_type": "run_manifest",
+                "project_id": "TEST", "updated_at": "2026-08-30T12:00:00Z",
+                "producer": {"kind": "script", "name": "record_run.py", "version": "0.6.0"},
+                "run_id": "RUN-EXP-001", "purpose": "compare two candidates cheaply",
+                "argv": ["python3", "explore.py"], "working_directory": ".",
+                "started_at": "2026-08-30T12:00:00Z", "finished_at": "2026-08-30T12:00:01Z",
+                "exit_code": 0, "status": "completed", "official_run": False,
+                "implementation": {"selected_language": "python", "rationale": "fixture", "runtime": "3.11"},
+                "environment": {"platform": "linux"},
+                "stdout_path": "runs/RUN-EXP-001/stdout.log",
+                "stderr_path": "runs/RUN-EXP-001/stderr.log",
+                "outputs": [], "capability_ids": [], "inputs": [],
+                "assertions": [], "parent_run_id": None,
+            }
+            write_json(root, "runs/RUN-EXP-001/RUN_MANIFEST.json", explore)
+            noise = [
+                item for item in check_project(root, "delivery")[0]
+                if item.rule_id == "RUN-E001" and "RUN-EXP-001" in item.path
+                and item.message.split(": ")[-1] in {"capability_ids", "inputs"}
+            ]
+            self.assertEqual(noise, [])
+
+
 if __name__ == "__main__":
     unittest.main()

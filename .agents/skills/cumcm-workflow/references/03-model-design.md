@@ -83,7 +83,7 @@ Compare candidates using fit to the task contract, identifiability, data require
 
 For the selected model, define state, decisions, parameters, objective, constraints, observation mechanism, stochastic assumptions, and numerical method. Declare whether an optimum is exact, local, heuristic, relaxed, sampled, or restricted to a stated policy class.
 
-Map every capability to a model component. Record each shared quantity's producer, consumers, definition, unit, time basis, transformation, uncertainty propagation, and authoritative artifact in the cross-question ledger. Resolve incompatible reuse before computation.
+Map every capability to a model component; `CAP-E013` reports any that no component takes on (a warning while working, an error once frozen), because a capability nobody claims is how a task quietly loses a requirement. Record each shared quantity's producer, consumers, definition, unit, time basis, transformation, uncertainty propagation, and authoritative artifact in the cross-question ledger. Resolve incompatible reuse before computation.
 
 Plan meaningful checks appropriate to the actual claims: hand-solvable instance, extreme case, conservation law, out-of-sample test, residual analysis, or perturbation analysis. An independent second implementation is optional and must not be created merely for MATLAB/Python parity.
 

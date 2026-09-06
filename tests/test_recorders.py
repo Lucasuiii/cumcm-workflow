@@ -80,7 +80,10 @@ def make_project(temp: Path) -> Path:
         "capability_id": "CAP-Q1-001", "subproblem_id": "Q1",
         "objective": "Enumerate the candidate set.", "required_output": "Minimum cost",
         "fact_ids": ["FACT-Q1-001"],
-        "acceptance_checks": [{"type": "enumeration_coverage", "expected": "every candidate visited"}],
+        "acceptance_checks": [{
+            "check_id": "ACC-Q1-001", "judge": "recorded", "assertion_name": "minimum_matches_expected",
+            "assertion": "the reported minimum equals the enumerated minimum; a mismatch means a candidate was skipped",
+        }],
         "model_ids": ["MODEL-Q1-001"], "code_entry_points": ["code/solve.py:main"],
         "result_ids": [], "lifecycle_state": "implemented", "blocking_issues": [],
     }]

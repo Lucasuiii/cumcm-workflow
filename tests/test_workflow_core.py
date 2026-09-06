@@ -161,7 +161,10 @@ def build_valid_project(root: Path) -> None:
             "objective": "Enumerate the fixed policy class.",
             "required_output": "Minimum cost in that class",
             "fact_ids": ["FACT-Q1-001"],
-            "acceptance_checks": [{"type": "enumeration_coverage", "expected": "all fixed policies"}],
+            "acceptance_checks": [{
+                "check_id": "ACC-Q1-001", "judge": "recorded", "assertion_name": "enumeration_covers_policy_class",
+                "assertion": "the enumerated count equals the class cardinality; fewer means a policy was skipped",
+            }],
             "model_ids": ["MODEL-Q1-001"],
             "code_entry_points": ["code/solve.py:main"],
             "result_ids": ["RES-Q1-001"],
@@ -261,7 +264,10 @@ def build_valid_project(root: Path) -> None:
             "environment": {"python": "3.x", "platform": "synthetic"},
             "stdout_path": "runs/RUN-Q1-001/stdout.log",
             "stderr_path": "runs/RUN-Q1-001/stderr.log",
-            "assertions": [{"name": "enumeration coverage", "passed": True, "source": "recorded"}],
+            "assertions": [
+                {"name": "enumeration coverage", "passed": True, "source": "recorded"},
+                {"name": "enumeration_covers_policy_class", "passed": True, "source": "recorded"},
+            ],
             "parent_run_id": None,
         }
     )
@@ -783,7 +789,10 @@ class WorkflowCoreTests(unittest.TestCase):
                     "objective": "Second declared computation",
                     "required_output": "Second result",
                     "fact_ids": ["FACT-Q1-001"],
-                    "acceptance_checks": [{"type": "synthetic"}],
+                    "acceptance_checks": [{
+                        "check_id": "ACC-SYN-001", "judge": "human",
+                        "assertion": "the synthetic fixture is judged by a person, not a script",
+                    }],
                     "model_ids": ["MODEL-Q1-001"],
                     "code_entry_points": ["code/solve.py:main"],
                     "result_ids": [],

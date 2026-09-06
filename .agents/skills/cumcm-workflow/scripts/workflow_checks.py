@@ -471,6 +471,117 @@ def check_facts(data: Any, source_ids: set[str], path: str) -> list[Finding]:
     return findings
 
 
+def check_acceptance_checks(
+    data: Any,
+    capability_passed_assertions: dict[str, set[str]],
+    path: str,
+    mode: str,
+) -> list[Finding]:
+    """A capability is delivered when the program says so, not when the agent says so.
+
+    `acceptance_checks` used to be free text, which meant "did we actually do the task"
+    was the one question this workflow could not answer -- it is written up in
+    docs/limitations.md as unsolvable. It is solvable: a check judged `recorded` names an
+    assertion the solving program must write out through --assert-file, which the run
+    manifest already carries with source `recorded`. The judgement stays with the author,
+    who has to phrase the check so a program can fail it; the verdict becomes machine fact.
+    """
+    findings: list[Finding] = []
+    if not isinstance(data, dict):
+        return findings
+    frozen = mode == "finalizing"
+    for capability in as_list(data.get("capabilities")):
+        if not isinstance(capability, dict):
+            continue
+        ident = item_id(capability, "capability_id")
+        if capability.get("lifecycle_state") not in {"executed", "validated"}:
+            continue
+        passed = capability_passed_assertions.get(ident, set())
+        for check in as_list(capability.get("acceptance_checks")):
+            if not isinstance(check, dict) or check.get("judge") != "recorded":
+                continue
+            name = check.get("assertion_name")
+            check_id = item_id(check, "check_id")
+            if not nonempty(name):
+                findings.append(finding("CAP-E012", "error", "structural", "computation", path, f"{check_id} is judged by a recorded assertion but does not name one", related_ids=[ident, check_id]))
+            elif str(name) not in passed:
+                findings.append(
+                    finding(
+                        "CAP-E012",
+                        "error" if frozen else "warning",
+                        "execution",
+                        "computation",
+                        path,
+                        f"{ident} declares it executed, but no official run recorded a passing assertion named {name} for {check_id}",
+                        related_ids=[ident, check_id],
+                    )
+                )
+    return findings
+
+
+def check_capability_coverage(
+    capabilities: Any,
+    model: Any,
+    paper_quality: Any,
+    path: str,
+    mode: str,
+) -> list[Finding]:
+    """Nothing stopped a capability from being declared and then quietly dropped.
+
+    The failure it guards is the one where the agent narrows the task until it fits what
+    it can do: every downstream check then verifies faithfulness to a shrunken reading,
+    and none of them can see that the reading shrank. So every declared capability must
+    be claimed by some model component, and none may still be unfinished once the paper
+    calls itself final.
+    """
+    findings: list[Finding] = []
+    if not isinstance(capabilities, dict):
+        return findings
+    declared = {
+        item_id(capability, "capability_id"): capability
+        for capability in as_list(capabilities.get("capabilities"))
+        if isinstance(capability, dict) and item_id(capability, "capability_id")
+    }
+    if not declared:
+        return findings
+    if isinstance(model, dict):
+        claimed: set[str] = set()
+        for component in as_list(model.get("components")):
+            if isinstance(component, dict):
+                claimed.update(str(value) for value in as_list(component.get("capability_ids")))
+        unclaimed = sorted(set(declared) - claimed)
+        if unclaimed:
+            findings.append(
+                finding(
+                    "CAP-E013",
+                    "error" if mode == "finalizing" else "warning",
+                    "semantic",
+                    "model-design",
+                    path,
+                    f"no model component takes on these capabilities: {', '.join(unclaimed)}",
+                    related_ids=unclaimed,
+                )
+            )
+    if isinstance(paper_quality, dict) and paper_quality.get("paper_status") == "final":
+        unfinished = sorted(
+            ident for ident, capability in declared.items()
+            if capability.get("lifecycle_state") in {"planned", "blocked"}
+        )
+        if unfinished:
+            findings.append(
+                finding(
+                    "CAP-E014",
+                    "error",
+                    "semantic",
+                    "paper",
+                    path,
+                    f"the paper calls itself final while these capabilities are unfinished: {', '.join(unfinished)}",
+                    related_ids=unfinished,
+                )
+            )
+    return findings
+
+
 def check_capabilities(data: Any, root: Path, fact_ids: set[str], subproblem_ids: set[str], path: str) -> list[Finding]:
     findings = check_envelope(data, "task_capabilities", "problem-analysis", path)
     if not isinstance(data, dict):
@@ -792,7 +903,12 @@ def check_run(data: Any, root: Path, rel_path: str, capability_ids: set[str], su
     sev = "error" if official_run else "warning"
 
     structural = ("run_id", "argv", "working_directory", "started_at", "finished_at", "exit_code", "status", "official_run", "implementation", "outputs")
+    # An exploratory run has no capability and no formal input yet -- that is what makes it
+    # exploratory. Reporting their absence produced two warnings per exploratory run and
+    # nothing actionable, which is how a checker teaches people to skim past its output.
     formal = ("purpose", "capability_ids", "inputs", "environment", "stdout_path", "stderr_path")
+    if not official_run:
+        formal = tuple(name for name in formal if name not in ("capability_ids", "inputs"))
     for field_name in structural:
         if data.get(field_name) in (None, "", []):
             findings.append(finding("RUN-E001", "error", "execution", "computation", rel_path, f"missing run field: {field_name}", pointer=f"/{field_name}"))
@@ -2138,6 +2254,7 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
     run_output_roles: dict[str, dict[str, str]] = {}
     executed_capability_ids: set[str] = set()
     capability_assertions: dict[str, set[str]] = {}
+    capability_passed_assertions: dict[str, set[str]] = {}
     capability_backends: dict[str, dict[str, list[str]]] = {}
     run_candidates: dict[str, set[str]] = {}
     run_count = 0
@@ -2169,8 +2286,15 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
                         for item in as_list(run.get("assertions"))
                         if isinstance(item, dict) and nonempty(item.get("name")) and item.get("source") == "recorded"
                     }
+                    passed_names = {
+                        str(item.get("name"))
+                        for item in as_list(run.get("assertions"))
+                        if isinstance(item, dict) and nonempty(item.get("name"))
+                        and item.get("source") == "recorded" and item.get("passed") is True
+                    }
                     for capability_id in as_list(run.get("capability_ids")):
                         capability_assertions.setdefault(str(capability_id), set()).update(names)
+                        capability_passed_assertions.setdefault(str(capability_id), set()).update(passed_names)
                 executed_capability_ids.update(str(value) for value in as_list(run.get("capability_ids")))
                 run_candidates[run["run_id"]] = {str(value) for value in as_list(run.get("candidate_ids"))}
                 if is_official:
@@ -2217,6 +2341,9 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
         findings.extend(check_selection_check(contracts["model"], CONTRACT_PATHS["model"]))
     if frozen and "model" in contracts and STAGES.index(stage) >= STAGES.index("computation"):
         findings.extend(check_model_verification(contracts["model"], capability_assertions, CONTRACT_PATHS["model"]))
+    if "capabilities" in contracts:
+        findings.extend(check_acceptance_checks(contracts["capabilities"], capability_passed_assertions, CONTRACT_PATHS["capabilities"], mode))
+        findings.extend(check_capability_coverage(contracts["capabilities"], contracts.get("model"), contracts.get("paper_quality"), CONTRACT_PATHS["capabilities"], mode))
     if "results" in contracts:
         findings.extend(check_schema(contracts["results"], "results", "computation", CONTRACT_PATHS["results"]))
         findings.extend(check_results(contracts["results"], root, run_ids, official_run_ids, run_output_roles, CONTRACT_PATHS["results"], superseded_ids))
