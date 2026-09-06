@@ -368,6 +368,14 @@ def build_valid_project(root: Path) -> None:
     claims.update(
         {
             "independent_review": review(),
+            "conclusion_check": {
+                "decision": "accepted",
+                "reviewer": "fixture-user",
+                "reviewed_at": "2026-08-30T12:00:00Z",
+                "reviewer_kind": "human_user",
+                "presented_claim_ids": ["CLM-Q1-001"],
+                "notes": "Claim text, scope and evidence state were shown before the paper was written.",
+            },
             "claims": [
                 {
                     "claim_id": "CLM-Q1-001",
@@ -419,7 +427,14 @@ def build_valid_project(root: Path) -> None:
             "unresolved_errors": [],
             "accepted_exceptions": [],
             "excluded_files": [],
-            "final_review": review(),
+            "final_check": {
+                "decision": "accepted",
+                "reviewer": "fixture-user",
+                "reviewed_at": "2026-08-30T12:00:00Z",
+                "reviewer_kind": "human_user",
+                "presented_pages": [1],
+                "notes": "Every rendered page was shown before submission.",
+            },
         }
     )
     write_json(root, "delivery/DELIVERY_MANIFEST.json", delivery)

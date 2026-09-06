@@ -10,10 +10,9 @@
   "required": [
     "paper_status",
     "paper_artifact",
-    "content_review",
-    "layout_review",
-    "final_qa",
-    "open_issues"
+    "open_issues",
+    "content_report",
+    "layout_report"
   ],
   "properties": {
     "artifact_type": {
@@ -28,225 +27,6 @@
     },
     "paper_artifact": {
       "$ref": "#/$defs/artifact"
-    },
-    "content_review": {
-      "type": "object",
-      "required": [
-        "decision",
-        "reviewer",
-        "reviewed_at",
-        "reviewer_kind",
-        "artifact",
-        "summary",
-        "questions"
-      ],
-      "properties": {
-        "decision": {
-          "enum": [
-            "unreviewed",
-            "accepted",
-            "revision_requested"
-          ]
-        },
-        "reviewer": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reviewed_at": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reviewer_kind": {
-          "enum": [
-            "human_user",
-            "external_reviewer",
-            "same_context_model"
-          ]
-        },
-        "artifact": {
-          "$ref": "#/$defs/artifact"
-        },
-        "summary": {
-          "type": "string",
-          "minLength": 1
-        },
-        "questions": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": [
-              "subproblem_id",
-              "status",
-              "notes"
-            ],
-            "properties": {
-              "subproblem_id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "status": {
-                "enum": [
-                  "pass",
-                  "concern",
-                  "fail"
-                ]
-              },
-              "notes": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "additionalProperties": true
-          }
-        }
-      },
-      "additionalProperties": true
-    },
-    "layout_review": {
-      "type": "object",
-      "required": [
-        "decision",
-        "reviewer",
-        "reviewed_at",
-        "artifact",
-        "page_count",
-        "rendered_pages",
-        "checks"
-      ],
-      "properties": {
-        "decision": {
-          "enum": [
-            "unreviewed",
-            "accepted",
-            "revision_requested"
-          ]
-        },
-        "reviewer": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reviewed_at": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "artifact": {
-          "$ref": "#/$defs/artifact"
-        },
-        "page_count": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "rendered_pages": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "checks": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": [
-              "check_id",
-              "category",
-              "status",
-              "notes"
-            ],
-            "properties": {
-              "check_id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "category": {
-                "enum": [
-                  "heading",
-                  "equation",
-                  "table",
-                  "figure",
-                  "caption",
-                  "whitespace",
-                  "pagination",
-                  "cross_page",
-                  "font_glyph",
-                  "other"
-                ]
-              },
-              "status": {
-                "enum": [
-                  "pass",
-                  "fail",
-                  "not_applicable"
-                ]
-              },
-              "notes": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "additionalProperties": true
-          }
-        }
-      },
-      "additionalProperties": true
-    },
-    "final_qa": {
-      "type": "object",
-      "required": [
-        "decision",
-        "reviewer",
-        "reviewed_at",
-        "reviewer_kind",
-        "artifact",
-        "notes"
-      ],
-      "properties": {
-        "decision": {
-          "enum": [
-            "unreviewed",
-            "accepted",
-            "revision_requested"
-          ]
-        },
-        "reviewer": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reviewed_at": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reviewer_kind": {
-          "enum": [
-            "human_user",
-            "external_reviewer",
-            "same_context_model"
-          ]
-        },
-        "artifact": {
-          "$ref": "#/$defs/artifact"
-        },
-        "notes": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "additionalProperties": true
     },
     "open_issues": {
       "type": "array",
@@ -316,6 +96,128 @@
         },
         "additionalProperties": true
       }
+    },
+    "content_report": {
+      "type": "object",
+      "required": [
+        "artifact",
+        "summary",
+        "questions"
+      ],
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "subproblem_id",
+              "status",
+              "notes"
+            ],
+            "properties": {
+              "subproblem_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "enum": [
+                  "pass",
+                  "concern",
+                  "fail"
+                ]
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "description": "What the paper says per subproblem. A report the writer produces, not an approval."
+    },
+    "layout_report": {
+      "type": "object",
+      "required": [
+        "artifact",
+        "page_count",
+        "rendered_pages",
+        "checks"
+      ],
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rendered_pages": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "check_id",
+              "category",
+              "status",
+              "notes"
+            ],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "category": {
+                "enum": [
+                  "heading",
+                  "equation",
+                  "table",
+                  "figure",
+                  "caption",
+                  "whitespace",
+                  "pagination",
+                  "cross_page",
+                  "font_glyph",
+                  "other"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "not_applicable"
+                ]
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "description": "Machine layout facts from record_compile.py. A report, not an approval."
     }
   },
   "$defs": {

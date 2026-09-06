@@ -42,4 +42,4 @@ The generic style uses restrained heading/equation/float spacing, booktabs-frien
 python3 scripts/record_compile.py --project <p> --update-quality
 ```
 
-With `--update-quality` it refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_review` — page count, rendered pages, checks, bound artifact — and leaves the decision to you. Then actually look at the rendered pages: equations, tables, captions, figure placement, page density, whitespace, fonts and cross-page continuity are human QA, not a machine score.
+With `--update-quality` it refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_report` — page count, rendered pages, checks, bound artifact. The report carries no decision of its own; the single approval before submission is `DELIVERY_MANIFEST.final_check`, and the pages rendered here are what it must present. Then actually look at the rendered pages: equations, tables, captions, figure placement, page density, whitespace, fonts and cross-page continuity are human QA, not a machine score.

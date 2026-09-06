@@ -148,11 +148,7 @@ def build_paper_ready_project(root: Path, *, decisions: tuple[str, ...] | None =
         {
             "paper_status": "final",
             "paper_artifact": paper_artifact,
-            "content_review": {
-                "decision": "accepted",
-                "reviewer": "fixture-reviewer",
-                "reviewed_at": "2026-08-30T12:00:00Z",
-                "reviewer_kind": "external_reviewer",
+            "content_report": {
                 "artifact": paper_artifact,
                 "summary": "Content is coherent and evidence-bounded.",
                 "abstract_synthesis": dict(dimension),
@@ -175,25 +171,13 @@ def build_paper_ready_project(root: Path, *, decisions: tuple[str, ...] | None =
                     }
                 ],
             },
-            "layout_review": {
-                "decision": "accepted",
-                "reviewer": "fixture-reviewer",
-                "reviewed_at": "2026-08-30T12:00:00Z",
-                "reviewer_kind": "human_user",
+            "layout_report": {
                 "artifact": paper_artifact,
                 "page_count": 1,
                 "rendered_pages": [1],
                 "checks": [
                     {"check_id": "LAYOUT-001", "category": "cross_page", "status": "pass", "notes": "All rendered pages inspected."}
                 ],
-            },
-            "final_qa": {
-                "decision": "accepted",
-                "reviewer": "fixture-reviewer",
-                "reviewed_at": "2026-08-30T12:00:00Z",
-                "reviewer_kind": "human_user",
-                "artifact": paper_artifact,
-                "notes": "Final bytes match the reviewed artifact.",
             },
             "open_issues": [],
         }
@@ -242,7 +226,7 @@ def build_paper_ready_project(root: Path, *, decisions: tuple[str, ...] | None =
                     "completed_at": "2026-08-30T12:00:00Z",
                 }
             ],
-            "layout_review_binding": {
+            "layout_report_binding": {
                 "quality_report_path": "paper/PAPER_QUALITY_REPORT.json",
                 "pdf_sha256": paper_artifact["sha256"],
             },
@@ -329,26 +313,26 @@ class PaperPipelineTests(unittest.TestCase):
     def test_review_only_failure_is_preflight_zero_and_enforce_nonzero(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            build_paper_ready_project(root, decisions=("intake", "problem-analysis", "model-design", "computation", "validation"))
-            set_state(root, "paper", "in_progress", "not_started")
-            path = root / "paper" / "PAPER_QUALITY_REPORT.json"
+            # no delivery decision, so editing the manifest does not also stale a snapshot
+            build_paper_ready_project(root, decisions=("intake", "problem-analysis", "model-design", "computation", "validation", "paper"))
+            path = root / "delivery" / "DELIVERY_MANIFEST.json"
             data = json.loads(path.read_text(encoding="utf-8"))
-            data["content_review"]["decision"] = "unreviewed"
-            write_json(root, "paper/PAPER_QUALITY_REPORT.json", data)
-            preflight_findings, preflight = check_project(root, "paper", "preflight")
-            _, enforce = check_project(root, "paper", "enforce")
-            self.assertIn("PQUALITY-E010", {item.rule_id for item in preflight_findings})
+            data["final_check"]["decision"] = "unreviewed"
+            write_json(root, "delivery/DELIVERY_MANIFEST.json", data)
+            preflight_findings, preflight = check_project(root, "delivery", "preflight")
+            _, enforce = check_project(root, "delivery", "enforce")
+            self.assertIn("DELIVERY-E011", {item.rule_id for item in preflight_findings})
             self.assertEqual(preflight["blocking_error_count"], 0)
             self.assertEqual(preflight["gate_status"], "awaiting_review")
             self.assertGreater(enforce["blocking_error_count"], 0)
             preflight_cli = subprocess.run(
-                [sys.executable, str(SCRIPTS / "cumcm_check.py"), "--project", str(root), "--stage", "paper", "--gate-mode", "preflight", "--no-write-report"],
+                [sys.executable, str(SCRIPTS / "cumcm_check.py"), "--project", str(root), "--stage", "delivery", "--gate-mode", "preflight", "--no-write-report"],
                 check=False,
                 capture_output=True,
                 text=True,
             )
             enforce_cli = subprocess.run(
-                [sys.executable, str(SCRIPTS / "cumcm_check.py"), "--project", str(root), "--stage", "paper", "--gate-mode", "enforce", "--no-write-report"],
+                [sys.executable, str(SCRIPTS / "cumcm_check.py"), "--project", str(root), "--stage", "delivery", "--gate-mode", "enforce", "--no-write-report"],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -356,13 +340,13 @@ class PaperPipelineTests(unittest.TestCase):
             self.assertEqual(preflight_cli.returncode, 0, preflight_cli.stdout + preflight_cli.stderr)
             self.assertEqual(enforce_cli.returncode, 1)
 
-    def test_strict_layout_review_must_cover_all_pages(self):
+    def test_strict_layout_report_must_cover_all_pages(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             build_paper_ready_project(root)
             path = root / "paper" / "PAPER_QUALITY_REPORT.json"
             data = json.loads(path.read_text(encoding="utf-8"))
-            data["layout_review"]["page_count"] = 2
+            data["layout_report"]["page_count"] = 2
             write_json(root, "paper/PAPER_QUALITY_REPORT.json", data)
             findings, _ = check_project(root, "paper")
             self.assertIn("PQUALITY-E008", {item.rule_id for item in findings})
@@ -549,6 +533,82 @@ class TaskSeparationTests(unittest.TestCase):
             self.assertNotIn("IREVIEW-E005", codes)
             self.assertNotIn("IREVIEW-E008", codes)
             self.assertEqual(summary["blocking_error_count"], 0)
+
+
+class HumanCheckpointTests(unittest.TestCase):
+    """Two approvals left, and each one records what the person was actually shown.
+
+    The trial that motivated this collapsed four approvals into one typed sentence and
+    ended up recording a human as having reviewed a PDF nobody had opened.
+    """
+
+    def test_conclusions_cannot_be_accepted_without_being_presented(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "validation" / "CLAIM_LEDGER.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            declared = [claim["claim_id"] for claim in data["claims"]]
+            self.assertTrue(declared)
+            data["conclusion_check"]["presented_claim_ids"] = []
+            write_json(root, "validation/CLAIM_LEDGER.json", data)
+            findings, _ = check_project(root, "delivery")
+            hit = [item for item in findings if item.rule_id == "CLAIM-E023"]
+            self.assertEqual(len(hit), 1)
+            for claim_id in declared:
+                self.assertIn(claim_id, hit[0].message)
+
+    def test_conclusion_check_is_review_only_not_an_automated_error(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root, decisions=("intake", "problem-analysis", "model-design"))
+            path = root / "validation" / "CLAIM_LEDGER.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["conclusion_check"]["decision"] = "unreviewed"
+            write_json(root, "validation/CLAIM_LEDGER.json", data)
+            build_handoff(root, "validation-paper", "fixture-independent-task")
+            findings, _ = check_project(root, "delivery", "preflight")
+            hit = [item for item in findings if item.rule_id == "CLAIM-E021"]
+            self.assertEqual(len(hit), 1)
+            self.assertTrue(hit[0].gate_only)
+
+    def test_a_person_cannot_be_credited_without_pages_being_presented(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root, decisions=("intake", "problem-analysis", "model-design", "computation", "validation", "paper"))
+            path = root / "delivery" / "DELIVERY_MANIFEST.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["final_check"]["presented_pages"] = []
+            write_json(root, "delivery/DELIVERY_MANIFEST.json", data)
+            codes = {item.rule_id for item in check_project(root, "delivery")[0]}
+            self.assertIn("DELIVERY-E019", codes)
+
+    def test_the_final_check_must_present_every_rendered_page(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root, decisions=("intake", "problem-analysis", "model-design", "computation", "validation", "paper"))
+            path = root / "delivery" / "DELIVERY_MANIFEST.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["compile"]["page_count"] = 3
+            data["final_check"]["presented_pages"] = [1]
+            write_json(root, "delivery/DELIVERY_MANIFEST.json", data)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "DELIVERY-E020"]
+            self.assertEqual(len(hit), 1)
+            self.assertIn("2, 3", hit[0].message)
+
+    def test_the_paper_report_no_longer_carries_its_own_approvals(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            quality = json.loads((root / "paper" / "PAPER_QUALITY_REPORT.json").read_text(encoding="utf-8"))
+            self.assertEqual(quality["paper_status"], "final")
+            self.assertNotIn("final_qa", quality)
+            for block in ("content_report", "layout_report"):
+                self.assertNotIn("decision", quality[block])
+                self.assertNotIn("reviewer_kind", quality[block])
+            codes = {item.rule_id for item in check_project(root, "delivery", "enforce")[0]}
+            for gone in ("PQUALITY-E010", "PQUALITY-E013", "PQUALITY-E014"):
+                self.assertNotIn(gone, codes)
 
 
 if __name__ == "__main__":

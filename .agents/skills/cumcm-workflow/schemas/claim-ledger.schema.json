@@ -1,56 +1,221 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Lucasuiii/cumcm-workflow/main/.agents/skills/cumcm-workflow/schemas/claim-ledger.schema.json",
-  "allOf": [{"$ref": "common.schema.json#/$defs/envelope"}],
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/envelope"
+    }
+  ],
   "type": "object",
-  "required": ["claims"],
+  "required": [
+    "claims",
+    "conclusion_check"
+  ],
   "properties": {
-    "artifact_type": {"const": "claim_ledger"},
-    "independent_review": {"$ref": "common.schema.json#/$defs/review"},
+    "artifact_type": {
+      "const": "claim_ledger"
+    },
+    "independent_review": {
+      "$ref": "common.schema.json#/$defs/review"
+    },
     "claims": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["claim_id", "text", "claim_type", "scope", "paper_location", "evidence", "evidence_state", "certificates"],
+        "required": [
+          "claim_id",
+          "text",
+          "claim_type",
+          "scope",
+          "paper_location",
+          "evidence",
+          "evidence_state",
+          "certificates"
+        ],
         "properties": {
-          "claim_id": {"type": "string", "minLength": 1},
-          "text": {"type": "string", "minLength": 1},
-          "claim_type": {"type": "string", "minLength": 1},
-          "scope": {"type": "string", "minLength": 1},
-          "limitations": {"type": ["string", "array", "null"]},
-          "paper_location": {"type": ["string", "null"]},
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limitations": {
+            "type": [
+              "string",
+              "array",
+              "null"
+            ]
+          },
+          "paper_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "evidence": {
             "type": "object",
             "properties": {
-              "fact_ids": {"type": "array", "items": {"type": "string"}},
-              "model_ids": {"type": "array", "items": {"type": "string"}},
-              "run_ids": {"type": "array", "items": {"type": "string"}},
-              "result_ids": {"type": "array", "items": {"type": "string"}},
-              "figure_ids": {"type": "array", "items": {"type": "string"}}
+              "fact_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "model_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "run_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "result_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "figure_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             },
             "additionalProperties": false
           },
-          "evidence_state": {"$ref": "common.schema.json#/$defs/evidence_state"},
+          "evidence_state": {
+            "$ref": "common.schema.json#/$defs/evidence_state"
+          },
           "certificates": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["type", "description", "evidence_ids"],
+              "required": [
+                "type",
+                "description",
+                "evidence_ids"
+              ],
               "properties": {
-                "type": {"enum": ["global_optimality", "unbiasedness", "equivalence", "causality", "robustness", "statistical_significance", "reproducibility"]},
-                "description": {"type": "string", "minLength": 1},
-                "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
-                "scope": {"type": ["string", "null"]},
-                "method": {"enum": ["perturbation", "sensitivity", "out_of_sample", "stress_test", "proof", "enumeration", "solver_certificate", "statistical_test", "independent_rerun"]}
+                "type": {
+                  "enum": [
+                    "global_optimality",
+                    "unbiasedness",
+                    "equivalence",
+                    "causality",
+                    "robustness",
+                    "statistical_significance",
+                    "reproducibility"
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "evidence_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "scope": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "method": {
+                  "enum": [
+                    "perturbation",
+                    "sensitivity",
+                    "out_of_sample",
+                    "stress_test",
+                    "proof",
+                    "enumeration",
+                    "solver_certificate",
+                    "statistical_test",
+                    "independent_rerun"
+                  ]
+                }
               },
               "additionalProperties": true
             }
           },
-          "review": {"$ref": "common.schema.json#/$defs/review"}
+          "review": {
+            "$ref": "common.schema.json#/$defs/review"
+          }
         },
         "additionalProperties": true
       }
+    },
+    "conclusion_check": {
+      "type": "object",
+      "description": "The person confirms the conclusions while the paper is still unwritten, when a rejection costs a recomputation rather than a rewrite. presented_claim_ids records what was actually put in front of them.",
+      "required": [
+        "decision",
+        "reviewer",
+        "reviewed_at",
+        "reviewer_kind",
+        "presented_claim_ids",
+        "notes"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "unreviewed",
+            "accepted",
+            "revision_requested"
+          ]
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewer_kind": {
+          "enum": [
+            "human_user",
+            "same_context_model"
+          ]
+        },
+        "presented_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

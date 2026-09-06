@@ -160,7 +160,7 @@ verified results -> claim selection -> prose/equation/table/figure planning
 python3 $S/record_compile.py --project <p> --update-quality
 ```
 
-Compiles, hashes the PDF, reads the page count, rasterises every page into `.cumcm/tmp/pages/`, derives layout checks from the engine log, and refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_review`. The decision stays yours — then actually look at the pages.
+Compiles, hashes the PDF, reads the page count, rasterises every page into `.cumcm/tmp/pages/`, derives layout checks from the engine log, and refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_report`. Those pages are what the final check has to present — then actually look at them.
 
 v0.6 deleted `PAPER_TRACEABILITY.json` (the property it promised is measured directly on the PDF) and the eight-dimension self-attested quality matrix.
 

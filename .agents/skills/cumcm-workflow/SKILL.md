@@ -28,6 +28,15 @@ Two rules shape everything below:
 
 Switch with `scripts/set_mode.py`. There is no `strict`/`sprint` profile in v0.6; a single rule set applies.
 
+## Where a person is asked
+
+Two checkpoints, and each records what was put in front of the person, not only what they decided. A decision with nothing presented is not evidence that anyone looked.
+
+- **`CLAIM_LEDGER.conclusion_check`**, before `validation-paper`: the conclusions themselves — claim text, `scope`, evidence state, open P0/P1. No run ids, no hashes. `presented_claim_ids` must cover every declared claim (`CLAIM-E023`). This is the cheap place to hear no; the same objection at delivery costs a rewritten paper.
+- **`DELIVERY_MANIFEST.final_check`**, before submission: the finished object — rendered pages, the answer to each subproblem, open findings. `presented_pages` must cover every rendered page (`DELIVERY-E020`), and `human_user` is not claimable with nothing presented (`DELIVERY-E019`).
+
+The paper report carries no approvals of its own: `content_report` and `layout_report` are reports. Reviewer selection is recorded, not confirmed — separation comes from the two cut transitions instead (`references/handoffs.md`).
+
 Stage statuses are `not_started`, `in_progress`, `passed`, `needs_revision`.
 
 ## Roles and handoffs

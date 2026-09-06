@@ -1129,6 +1129,29 @@ def claim_certificate_types(text: str) -> set[str]:
     return {name for name, pattern in STRONG_CLAIM_PATTERNS.items() if pattern.search(text)}
 
 
+def check_conclusion_check(data: dict[str, Any], path: str) -> list[Finding]:
+    """The person confirms the conclusions before anyone writes them up.
+
+    This is the cheap place to say no: a rejection here costs a recomputation, the same
+    rejection at delivery costs a rewritten paper. What the person is shown is the claim
+    text, its scope and its evidence state -- not run ids or hashes, which nobody can
+    audit by eye and which only dilute the few things they can.
+    """
+    findings: list[Finding] = []
+    check = data.get("conclusion_check")
+    if not isinstance(check, dict) or check.get("decision") != "accepted":
+        findings.append(finding("CLAIM-E021", "error", "semantic", "validation", path, "the conclusions must be confirmed before the paper is written", gate_only=True))
+        return findings
+    if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
+        findings.append(finding("CLAIM-E022", "error", "semantic", "validation", path, "an accepted conclusion check lacks reviewer or review time"))
+    presented = {str(item) for item in as_list(check.get("presented_claim_ids"))}
+    declared = {item_id(claim, "claim_id") for claim in as_list(data.get("claims")) if isinstance(claim, dict)}
+    unseen = sorted(declared - presented)
+    if unseen:
+        findings.append(finding("CLAIM-E023", "error", "semantic", "validation", path, f"conclusions were accepted without being presented: {', '.join(unseen)}", related_ids=unseen))
+    return findings
+
+
 def check_claims(
     data: Any,
     known_ids: dict[str, set[str]],
@@ -1144,6 +1167,7 @@ def check_claims(
     review = data.get("independent_review")
     if review is not None and (not isinstance(review, dict) or review.get("decision") not in {"accepted", "accepted_with_concerns"}):
         findings.append(finding("CLAIM-E006", "error", "semantic", "validation", path, "claim ledger references a non-accepted independent logic pass"))
+    findings.extend(check_conclusion_check(data, path))
     for claim in as_list(claims):
         if not isinstance(claim, dict):
             continue
@@ -1288,9 +1312,33 @@ def check_delivery(data: Any, root: Path, path: str) -> list[Finding]:
     unresolved = as_list(data.get("unresolved_errors"))
     if unresolved:
         findings.append(finding("DELIVERY-E010", "error", "semantic", "delivery", path, "delivery contains unresolved errors"))
-    final_review = data.get("final_review")
-    if not isinstance(final_review, dict) or final_review.get("decision") != "accepted":
-        findings.append(finding("DELIVERY-E011", "error", "semantic", "delivery", path, "final human review must be accepted", gate_only=True))
+    findings.extend(check_final_check(data, path, compile_record))
+    return findings
+
+
+def check_final_check(data: dict[str, Any], path: str, compile_record: Any) -> list[Finding]:
+    """The last approval before submission, and the only one left in this half.
+
+    The trial that motivated this collapsed four separate approvals into one typed
+    sentence, and recorded a human as having reviewed a PDF nobody had opened. So the
+    decision now carries the pages that were actually rendered for the reviewer, and
+    human_user is not claimable without them.
+    """
+    findings: list[Finding] = []
+    check = data.get("final_check")
+    if not isinstance(check, dict) or check.get("decision") not in ("accepted", "accepted_with_concerns"):
+        findings.append(finding("DELIVERY-E011", "error", "semantic", "delivery", path, "the final check before submission must be accepted", gate_only=True))
+        return findings
+    if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
+        findings.append(finding("DELIVERY-E018", "error", "semantic", "delivery", path, "an accepted final check lacks reviewer or review time"))
+    presented = {page for page in as_list(check.get("presented_pages")) if isinstance(page, int)}
+    page_count = compile_record.get("page_count") if isinstance(compile_record, dict) else None
+    rendered = set(range(1, page_count + 1)) if isinstance(page_count, int) and page_count > 0 else set()
+    if check.get("reviewer_kind") == "human_user" and not presented:
+        findings.append(finding("DELIVERY-E019", "error", "semantic", "delivery", path, "a final check attributed to a person must record the pages presented to them; record_compile.py renders them"))
+    missing = sorted(rendered - presented)
+    if presented and missing:
+        findings.append(finding("DELIVERY-E020", "error", "visual", "delivery", path, f"the final check did not present every rendered page: {', '.join(str(page) for page in missing)}", related_ids=[str(page) for page in missing]))
     return findings
 
 
@@ -1378,22 +1426,19 @@ def check_paper_quality(
     findings.extend(check_bound_artifact(root, paper, "paper", path, "PQUALITY"))
     bound_hash = paper.get("sha256") if isinstance(paper, dict) else None
     bound_path = paper.get("path") if isinstance(paper, dict) else None
-    content = data.get("content_review")
-    layout = data.get("layout_review")
-    final_qa = data.get("final_qa")
-    for name, review in (("content", content), ("layout", layout), ("final", final_qa)):
-        if not isinstance(review, dict):
+    content = data.get("content_report")
+    layout = data.get("layout_report")
+    for name, report in (("content", content), ("layout", layout)):
+        if not isinstance(report, dict):
             continue
-        if review.get("decision") == "accepted" and (not nonempty(review.get("reviewer")) or not nonempty(review.get("reviewed_at"))):
-            findings.append(finding("PQUALITY-E012", "error", "semantic", "paper", path, f"accepted {name} review lacks reviewer or review time"))
-        artifact = review.get("artifact")
+        artifact = report.get("artifact")
         if isinstance(artifact, dict) and (artifact.get("path") != bound_path or artifact.get("sha256") != bound_hash):
-            findings.append(finding("PQUALITY-E004", "error", "structural", "paper", path, f"{name} review is bound to a different paper version"))
+            findings.append(finding("PQUALITY-E004", "error", "structural", "paper", path, f"{name} report is bound to a different paper version"))
     if isinstance(content, dict):
         reviewed_questions = ids(content.get("questions"), "subproblem_id")
         missing = sorted(subproblem_ids - reviewed_questions)
         if missing:
-            findings.append(finding("PQUALITY-E005", "error", "semantic", "paper", path, f"content review misses subproblems: {', '.join(missing)}", related_ids=missing))
+            findings.append(finding("PQUALITY-E005", "error", "semantic", "paper", path, f"content report misses subproblems: {', '.join(missing)}", related_ids=missing))
         for question in as_list(content.get("questions")):
             if not isinstance(question, dict):
                 continue
@@ -1406,14 +1451,11 @@ def check_paper_quality(
         page_count = layout.get("page_count")
         pages = {page for page in as_list(layout.get("rendered_pages")) if isinstance(page, int)}
         if data.get("paper_status") == "final" and isinstance(page_count, int) and pages != set(range(1, page_count + 1)):
-            findings.append(finding("PQUALITY-E008", "error", "visual", "paper", path, "final layout review must cover every rendered PDF page; record_compile.py renders them"))
+            findings.append(finding("PQUALITY-E008", "error", "visual", "paper", path, "final layout report must cover every rendered PDF page; record_compile.py renders them"))
         if any(isinstance(check, dict) and check.get("status") == "fail" for check in as_list(layout.get("checks"))):
-            findings.append(finding("PQUALITY-E009", "error", "visual", "paper", path, "layout review contains failed checks"))
+            findings.append(finding("PQUALITY-E009", "error", "visual", "paper", path, "layout report contains failed checks"))
     issues = as_list(data.get("open_issues"))
     if data.get("paper_status") == "final":
-        for name, review in (("content", content), ("layout", layout), ("final QA", final_qa)):
-            if not isinstance(review, dict) or review.get("decision") != "accepted":
-                findings.append(finding("PQUALITY-E010", "error", "semantic", "paper", path, f"final paper lacks accepted {name} review", gate_only=True))
         open_p0 = [item_id(issue, "issue_id") for issue in issues if isinstance(issue, dict) and issue.get("severity") == "P0" and issue.get("status") == "open"]
         if open_p0:
             findings.append(finding("PQUALITY-E011", "error", "semantic", "paper", path, f"final paper has open P0 issues: {', '.join(open_p0)}", related_ids=open_p0))
@@ -1425,10 +1467,6 @@ def check_paper_quality(
                 findings.append(finding("PQUALITY-W011", "warning", "semantic", "paper", path, f"final paper retains a concern: {issue_id}", related_ids=[issue_id]))
             elif issue.get("severity") == "P2":
                 findings.append(finding("PQUALITY-I011", "info", "semantic", "paper", path, f"final paper retains a suggestion: {issue_id}", related_ids=[issue_id]))
-        if isinstance(content, dict) and content.get("reviewer_kind") == "same_context_model":
-            findings.append(finding("PQUALITY-E013", "error", "semantic", "paper", path, "same-context content self-review cannot finalize the reader-facing paper", gate_only=True))
-        if isinstance(final_qa, dict) and final_qa.get("reviewer_kind") == "same_context_model":
-            findings.append(finding("PQUALITY-E014", "error", "semantic", "paper", path, "same-context final QA cannot finalize the paper", gate_only=True))
     return findings
 
 
@@ -1447,8 +1485,8 @@ def check_paper_visible_text(data: Any, root: Path, path: str, paper_quality: An
     if open_flags:
         findings.append(finding("PTEXT-W006", "warning", "semantic", "paper", path, "visible-text report has numerical-presentation suggestions to review"))
     # The visible-text report is machine-produced. Blocking matches already fail, and
-    # human acceptance of the paper lives in PAPER_QUALITY_REPORT.final_qa; asking for a
-    # second signature on a generated report only bought an extra self-attestation.
+    # human acceptance lives in DELIVERY_MANIFEST.final_check; asking for a second
+    # signature on a generated report only bought an extra self-attestation.
     return findings
 
 
@@ -1602,7 +1640,7 @@ def check_compile_receipt(data: Any, root: Path, path: str, quality_report: Any,
         findings.append(finding("COMPILE-E006", "error", "visual", "delivery", path, "delivery requires passing font and missing-glyph checks; record_compile.py derives them from the engine log"))
     if isinstance(latex_template, dict) and str(selected.get("engine", "")).casefold() != str(latex_template.get("engine", "")).casefold():
         findings.append(finding("COMPILE-E014", "error", "execution", "delivery", path, "selected compile engine differs from the LaTeX template manifest"))
-    binding = data.get("layout_review_binding")
+    binding = data.get("layout_report_binding")
     if isinstance(binding, dict):
         quality_path = safe_project_path(root, binding.get("quality_report_path"))
         if quality_path is None or not quality_path.is_file():
@@ -1613,7 +1651,7 @@ def check_compile_receipt(data: Any, root: Path, path: str, quality_report: Any,
         if quality_report.get("paper_status") != "final":
             findings.append(finding("COMPILE-E013", "error", "semantic", "delivery", path, "delivery requires a paper quality report with paper_status=final"))
         paper = quality_report.get("paper_artifact")
-        layout = quality_report.get("layout_review")
+        layout = quality_report.get("layout_report")
         if isinstance(paper, dict) and (paper.get("path") != selected.get("pdf_path") or paper.get("sha256") != selected.get("pdf_sha256")):
             findings.append(finding("COMPILE-E009", "error", "structural", "delivery", path, "selected compile PDF differs from the reviewed paper artifact"))
         if isinstance(layout, dict) and layout.get("page_count") != selected.get("page_count"):

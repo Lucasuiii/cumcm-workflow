@@ -111,7 +111,7 @@ def main() -> int:
     parser.add_argument("--engine")
     parser.add_argument("--attempt-id", default="ATTEMPT-001")
     parser.add_argument("--no-render", action="store_true", help="skip per-page rasterisation")
-    parser.add_argument("--update-quality", action="store_true", help="refresh the machine fields of PAPER_QUALITY_REPORT.layout_review")
+    parser.add_argument("--update-quality", action="store_true", help="refresh the machine fields of PAPER_QUALITY_REPORT.layout_report")
     args = parser.parse_args()
 
     root = args.project.resolve()
@@ -180,7 +180,7 @@ def main() -> int:
                 "completed_at": utc_now(),
             }
         ],
-        "layout_review_binding": {
+        "layout_report_binding": {
             "quality_report_path": "paper/PAPER_QUALITY_REPORT.json",
             "pdf_sha256": sha256_file(pdf_path),
         },
@@ -190,7 +190,7 @@ def main() -> int:
     quality_path = root / "paper" / "PAPER_QUALITY_REPORT.json"
     if args.update_quality and quality_path.is_file():
         quality = read_object(quality_path)
-        layout = quality.get("layout_review")
+        layout = quality.get("layout_report")
         if isinstance(layout, dict):
             layout["page_count"] = pages_total
             if rendered:
@@ -199,7 +199,7 @@ def main() -> int:
             layout["artifact"] = {"path": pdf_rel, "sha256": sha256_file(pdf_path)}
             quality["paper_artifact"] = {"path": pdf_rel, "sha256": sha256_file(pdf_path)}
             write_atomic(quality_path, quality)
-            print("refreshed PAPER_QUALITY_REPORT.layout_review machine fields; the decision is still yours")
+            print("refreshed PAPER_QUALITY_REPORT.layout_report machine fields; the decision is still yours")
 
     delivery_path = root / "delivery" / "DELIVERY_MANIFEST.json"
     if delivery_path.is_file():

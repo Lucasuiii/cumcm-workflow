@@ -15,7 +15,7 @@
     "unresolved_errors",
     "accepted_exceptions",
     "excluded_files",
-    "final_review"
+    "final_check"
   ],
   "properties": {
     "artifact_type": {
@@ -145,8 +145,59 @@
     "excluded_files": {
       "type": "array"
     },
-    "final_review": {
-      "$ref": "common.schema.json#/$defs/review"
+    "final_check": {
+      "type": "object",
+      "description": "The single approval before submission. presented_pages is the machine fact of what was put in front of the reviewer; human_user is not claimable without it.",
+      "required": [
+        "decision",
+        "reviewer",
+        "reviewed_at",
+        "reviewer_kind",
+        "presented_pages",
+        "notes"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "unreviewed",
+            "accepted",
+            "accepted_with_concerns",
+            "revision_requested"
+          ]
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewer_kind": {
+          "enum": [
+            "human_user",
+            "same_context_model"
+          ]
+        },
+        "presented_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

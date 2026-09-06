@@ -1,20 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Lucasuiii/cumcm-workflow/main/.agents/skills/cumcm-workflow/schemas/compile-receipt.schema.json",
-  "allOf": [{"$ref": "common.schema.json#/$defs/envelope"}],
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/envelope"
+    }
+  ],
   "type": "object",
-  "required": ["selected_attempt_id", "attempts", "layout_review_binding", "source_snapshot"],
+  "required": [
+    "selected_attempt_id",
+    "attempts",
+    "layout_report_binding",
+    "source_snapshot"
+  ],
   "properties": {
-    "artifact_type": {"const": "compile_receipt"},
-    "selected_attempt_id": {"type": "string", "minLength": 1},
+    "artifact_type": {
+      "const": "compile_receipt"
+    },
+    "selected_attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "source_snapshot": {
       "type": "object",
-      "required": ["algorithm", "digest", "entrypoint", "files"],
+      "required": [
+        "algorithm",
+        "digest",
+        "entrypoint",
+        "files"
+      ],
       "properties": {
-        "algorithm": {"const": "sha256-tree-v1"},
-        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "entrypoint": {"type": "string", "minLength": 1},
-        "files": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "algorithm": {
+          "const": "sha256-tree-v1"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       },
       "additionalProperties": false
     },
@@ -23,32 +58,109 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["attempt_id", "argv", "engine", "engine_version", "exit_code", "log_path", "warnings", "page_count", "pdf_path", "pdf_sha256", "font_check", "glyph_check", "diagnostic_summary", "completed_at"],
+        "required": [
+          "attempt_id",
+          "argv",
+          "engine",
+          "engine_version",
+          "exit_code",
+          "log_path",
+          "warnings",
+          "page_count",
+          "pdf_path",
+          "pdf_sha256",
+          "font_check",
+          "glyph_check",
+          "diagnostic_summary",
+          "completed_at"
+        ],
         "properties": {
-          "attempt_id": {"type": "string", "minLength": 1},
-          "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-          "engine": {"type": "string", "minLength": 1},
-          "engine_version": {"type": "string", "minLength": 1},
-          "exit_code": {"type": "integer"},
-          "log_path": {"type": "string", "minLength": 1},
-          "warnings": {"type": "array", "items": {"type": "string"}},
-          "page_count": {"type": "integer", "minimum": 1},
-          "pdf_path": {"type": "string", "minLength": 1},
-          "pdf_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-          "font_check": {"enum": ["pass", "fail", "not_run"]},
-          "glyph_check": {"enum": ["pass", "fail", "not_run"]},
-          "diagnostic_summary": {"type": "string", "minLength": 1},
-          "completed_at": {"type": "string", "minLength": 1}
+          "attempt_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engine": {
+            "type": "string",
+            "minLength": 1
+          },
+          "engine_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "log_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "page_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pdf_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pdf_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "font_check": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_run"
+            ]
+          },
+          "glyph_check": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_run"
+            ]
+          },
+          "diagnostic_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "completed_at": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "additionalProperties": true
       }
     },
-    "layout_review_binding": {
+    "layout_report_binding": {
       "type": "object",
-      "required": ["quality_report_path", "pdf_sha256"],
+      "required": [
+        "quality_report_path",
+        "pdf_sha256"
+      ],
       "properties": {
-        "quality_report_path": {"type": "string", "minLength": 1},
-        "pdf_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "quality_report_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pdf_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       },
       "additionalProperties": false
     }
