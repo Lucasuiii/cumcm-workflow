@@ -1012,7 +1012,7 @@ def check_run(data: Any, root: Path, rel_path: str, capability_ids: set[str], su
     if not isinstance(assertions, list) or not assertions:
         if official_run:
             findings.append(finding("RUN-W001", "warning", "numerical", "computation", rel_path, "official run records no assertions"))
-    elif official_run and not any(isinstance(item, dict) and item.get("source") == "recorded" for item in assertions):
+    if isinstance(assertions, list) and assertions and official_run and not any(isinstance(item, dict) and item.get("source") == "recorded" for item in assertions):
         findings.append(
             finding(
                 "RUN-W003",
@@ -1024,7 +1024,10 @@ def check_run(data: Any, root: Path, rel_path: str, capability_ids: set[str], su
                 remediation="have the program write its own verdicts and pass them with record_run.py --assert-file",
             )
         )
-    elif any(isinstance(item, dict) and item.get("passed") is not True for item in assertions):
+    # Independent of the one above: an official run whose assertions are all declared AND
+    # one of them failed used to report only the provenance warning, because these were
+    # branches of one chain. A failed check must be reported whoever wrote the verdict.
+    if isinstance(assertions, list) and any(isinstance(item, dict) and item.get("passed") is not True for item in assertions):
         # A failed assertion inside an exploratory run is a finding about the experiment,
         # not about the formal chain, so it never blocks.
         findings.append(finding("RUN-E008", sev, "numerical", "computation", rel_path, "one or more recorded assertions failed"))

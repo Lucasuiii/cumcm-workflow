@@ -27,7 +27,7 @@ python3 scripts/record_run.py --project <p> -- python3 code/try.py
 # formal: declare only what the tool cannot know
 python3 scripts/record_run.py --project <p> --official --capability CAP-Q1-001 \
   --source code/solve.py --input data/q1.csv:formal \
-  --output results/q1.json:claim --assert "feasibility=pass" -- python3 code/solve.py
+  --output results/q1.json:claim --assert-file results/assertions.json -- python3 code/solve.py
 
 # a rerun appends a successor (RUN-Q1-002) and leaves the parent untouched
 python3 scripts/record_run.py --project <p> --rerun RUN-Q1-001 --official
@@ -79,6 +79,8 @@ python3 scripts/record_run.py --project <p> --seed 20260907 --seed bootstrap=7 -
 Two things a run may never claim:
 
 - **an output it did not write.** The recorder stats every declared output before and after execution. A program that exits 0 without rewriting its claim-bearing output would otherwise have the previous run's file frozen as its own, with a real hash and false provenance; the recorder refuses to write the manifest at all and says which file was not produced. An untouched intermediate or diagnostic output only warns.
+`--assert-file` names a file the run must write during the run. record_run.py records the mtime before it starts and refuses the run if the file did not change, so yesterday's verdicts cannot be re-recorded as today's -- the same leftover trap that claim-bearing outputs close. A declared `--source` or `--input` must likewise exist before the run starts: something the run creates is an output, and freezing it as the code that ran would record a file the run generated as the file it read.
+
 Acceptance checks judged `recorded` are the reason `--assert-file` exists. The capability names an assertion; the solving program computes it and writes the verdict out; `CAP-E012` checks that an official run for that capability recorded it passing. Have the program raise or write `passed: false` when the condition fails rather than reporting success and letting a later reader notice -- the point is that "we did the task" becomes something the run either shows or does not.
 
 - **a verdict it did not reach.** Assertions carry their provenance. `--assert name=pass` is a note typed by the caller and is recorded as `source: "declared"`; `--assert-file` reads verdicts the program wrote itself and is recorded as `source: "recorded"`. Only recorded verdicts satisfy a frozen `verification_plan` (`MODEL-E009`/`MODEL-W010`), and an official run carrying only declared ones raises `RUN-W003`. Assertions are also never inherited by a rerun -- new code has not been verified by the old run's `pass` -- and a rerun that drops its parent's assertions says so on stderr.

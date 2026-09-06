@@ -92,7 +92,7 @@ python3 scripts/record_run.py --project <p> -- python3 code/try.py
 python3 scripts/record_run.py --project <p> --official \
   --capability CAP-Q1-001 --source code/solve.py \
   --input data/q1.csv:formal --output results/q1.json:claim \
-  --assert "feasibility=pass" -- python3 code/solve.py
+  --assert-file results/assertions.json -- python3 code/solve.py
 
 # the value is read out of the output, never transcribed
 python3 scripts/index_result.py --project <p> --result-id RES-Q1-001 \

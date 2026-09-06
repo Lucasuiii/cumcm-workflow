@@ -7,6 +7,7 @@ result and compile receipt here is produced by the tooling the workflow ships.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -301,6 +302,56 @@ NO_OP = """print("did nothing")
 class ProvenanceIntegrityTests(unittest.TestCase):
     """A run may only claim what it actually produced and actually verified."""
 
+    def test_a_leftover_assertion_file_is_never_recorded_as_this_runs_verdict(self):
+        """`recorded` means this run computed the verdict, so a stale file cannot supply it.
+
+        Without this the whole declared/recorded split is decorative: point --assert-file
+        at yesterday's verdicts and they satisfy a frozen verification plan.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            project = make_project(Path(temp))
+            RecorderTests.record_official(self, project)
+            stale = project / "results" / "assertions.json"
+            os.utime(stale, (946684800, 946684800))          # 2000-01-01
+            before = stale.read_text(encoding="utf-8")
+
+            (project / "code" / "quiet.py").write_text(
+                'import json, pathlib\n'
+                'pathlib.Path("results/q1_output.json").write_text(json.dumps({"minimum_cost": 1.5, "count": 3}))\n',
+                encoding="utf-8",
+            )
+            refused = run_script(
+                "record_run.py", "--project", str(project), "--run-id", "RUN-STALE", "--official",
+                "--capability", "CAP-Q1-001", "--source", "code/quiet.py",
+                "--output", "results/q1_output.json:claim",
+                "--assert-file", "results/assertions.json",
+                "--", sys.executable, "code/quiet.py",
+            )
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("not rewritten by this run", refused.stderr)
+            self.assertFalse((project / "runs" / "RUN-STALE" / "RUN_MANIFEST.json").exists())
+            self.assertEqual(stale.read_text(encoding="utf-8"), before)
+
+    def test_a_source_the_run_creates_is_not_the_code_that_ran(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = make_project(Path(temp))
+            (project / "code").mkdir(exist_ok=True)
+            (project / "code" / "driver.py").write_text(
+                'import json, pathlib\n'
+                'pathlib.Path("code/generated.py").write_text("# made during the run")\n'
+                'pathlib.Path("results").mkdir(exist_ok=True)\n'
+                'pathlib.Path("results/q1_output.json").write_text(json.dumps({"minimum_cost": 1.5}))\n',
+                encoding="utf-8",
+            )
+            refused = run_script(
+                "record_run.py", "--project", str(project), "--run-id", "RUN-GEN", "--official",
+                "--capability", "CAP-Q1-001", "--source", "code/generated.py",
+                "--output", "results/q1_output.json:claim", "--", sys.executable, "code/driver.py",
+            )
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("does not exist before the run", refused.stderr)
+            self.assertFalse((project / "runs" / "RUN-GEN" / "RUN_MANIFEST.json").exists())
+
     def test_a_leftover_file_is_never_recorded_as_this_runs_claim_output(self):
         with tempfile.TemporaryDirectory() as temp:
             project = make_project(Path(temp))
@@ -425,6 +476,28 @@ pathlib.Path("results/q1_output.json").write_text(json.dumps({"minimum_cost": 1.
 pathlib.Path("code/self_editing.py").write_text("# rewritten while running\\n", encoding="utf-8")
 print("moved under myself")
 """
+
+
+class LineageTests(unittest.TestCase):
+    def test_two_successful_official_reruns_of_one_parent_are_ambiguous(self):
+        """A fork is a judgement about the work, so the tool refuses instead of guessing."""
+        import index_result
+        runs = {
+            "RUN-001": {"official_run": True, "status": "completed", "exit_code": 0,
+                        "parent_run_id": None, "finished_at": "2026-09-01T10:00:00Z"},
+            "RUN-002": {"official_run": True, "status": "completed", "exit_code": 0,
+                        "parent_run_id": "RUN-001", "finished_at": "2026-09-01T11:00:00Z"},
+            "RUN-003": {"official_run": True, "status": "completed", "exit_code": 0,
+                        "parent_run_id": "RUN-001", "finished_at": "2026-09-01T12:00:00Z"},
+        }
+        with self.assertRaises(ValueError) as caught:
+            index_result.newest_descendant(runs, "RUN-001")
+        self.assertIn("ambiguous", str(caught.exception))
+        self.assertIn("RUN-002", str(caught.exception))
+        self.assertIn("RUN-003", str(caught.exception))
+        # an unforked chain still resolves
+        del runs["RUN-003"]
+        self.assertEqual(index_result.newest_descendant(runs, "RUN-001"), "RUN-002")
 
 
 class MachineDerivedEvidenceTests(unittest.TestCase):

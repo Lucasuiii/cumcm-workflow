@@ -82,7 +82,16 @@ def newest_descendant(runs: dict[str, dict[str, Any]], run_id: str) -> str:
     current = run_id
     while current in children:
         candidates = sorted(children[current], key=lambda rid: (str(runs[rid].get("finished_at", "")), rid))
-        current = candidates[-1]
+        if len(candidates) > 1:
+            # Two successful official reruns of the same parent is a fork, not a chain.
+            # Both superseded it, and which one the result should follow is a judgement
+            # about the work; guessing "newest" would quietly re-point evidence at a
+            # branch nobody chose.
+            raise ValueError(
+                f"lineage from {current} is ambiguous: {', '.join(candidates)} all supersede it; "
+                "name the run you mean with --run-id instead of --follow-lineage"
+            )
+        current = candidates[0]
         if current in seen:
             break
         seen.add(current)

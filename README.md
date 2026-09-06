@@ -222,7 +222,7 @@ python3 $S/cumcm_check.py --project <p> --stage model-design --gate-mode preflig
 python3 $S/record_run.py --project <p> --official \
   --capability CAP-Q1-001 --source code/solve.py \
   --input data/q1.csv:formal --output results/q1.json:claim \
-  --assert "feasibility=pass" -- python3 code/solve.py
+  --assert-file results/assertions.json -- python3 code/solve.py
 
 python3 $S/index_result.py --project <p> --result-id RES-Q1-001 --run RUN-Q1-001 \
   --locator 'results/q1.json#/minimum_cost' --name "最小成本" --unit CNY \

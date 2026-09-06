@@ -708,6 +708,24 @@ class CapabilityDeliveryTests(unittest.TestCase):
             self.assertIn("RESULT-E017", codes)
             self.assertNotIn("RESULT-E016", codes)
 
+    def test_a_failed_declared_assertion_is_still_reported(self):
+        """The provenance warning and the failed check are independent facts.
+
+        They used to be branches of one if/elif, so an official run whose only assertion
+        was typed on the command line AND failed reported the provenance nit and swallowed
+        the failure.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "runs" / "RUN-Q1-001" / "RUN_MANIFEST.json"
+            run = json.loads(path.read_text(encoding="utf-8"))
+            run["assertions"] = [{"name": "feasibility", "passed": False, "source": "declared"}]
+            write_json(root, "runs/RUN-Q1-001/RUN_MANIFEST.json", run)
+            codes = {item.rule_id for item in check_project(root, "delivery")[0]}
+            self.assertIn("RUN-W003", codes)
+            self.assertIn("RUN-E008", codes)
+
     def test_a_capability_no_model_takes_on_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

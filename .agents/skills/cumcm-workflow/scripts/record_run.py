@@ -108,7 +108,12 @@ def runtime_label(language: str, argv: list[str]) -> str:
     return f"MATLAB via {executable}"
 
 
-def parse_assertions(entries: list[str], assertion_file: str | None, root: Path) -> list[dict[str, Any]]:
+def parse_assertions(
+    entries: list[str],
+    assertion_file: str | None,
+    root: Path,
+    assertion_file_mtime_before: float | None = None,
+) -> list[dict[str, Any]]:
     assertions: list[dict[str, Any]] = []
     for entry in entries:
         name, _, verdict = entry.partition("=")
@@ -119,7 +124,18 @@ def parse_assertions(entries: list[str], assertion_file: str | None, root: Path)
         # A verdict typed on the command line is a human note, not executed evidence.
         assertions.append({"name": name, "passed": passed, "source": "declared"})
     if assertion_file:
-        payload = json.loads((root / assertion_file).read_text(encoding="utf-8"))
+        target = root / assertion_file
+        if not target.is_file():
+            raise SystemExit(f"the run did not write its assertion file: {assertion_file}")
+        # Source `recorded` means this run computed the verdict. A file the run never
+        # touched is a leftover, and stamping it `recorded` would defeat the whole
+        # distinction -- the same leftover trap that claim-bearing outputs already close.
+        if assertion_file_mtime_before is not None and mtime_of(root, assertion_file) == assertion_file_mtime_before:
+            raise SystemExit(
+                f"the assertion file was not rewritten by this run: {assertion_file}; "
+                "have the program write its own verdicts, or drop --assert-file"
+            )
+        payload = json.loads(target.read_text(encoding="utf-8"))
         items = payload.get("assertions") if isinstance(payload, dict) else payload
         for item in items or []:
             if isinstance(item, dict) and item.get("name"):
@@ -295,6 +311,18 @@ def main() -> int:
     # Freezing happens after execution, so the copy is only honest if the file did
     # not move under the run. Hash what the run is about to read, and check after.
     declared_input_paths = [relative(root, spec.split(":", 1)[0]) for spec in declared_inputs]
+    # Something the run creates is an output. Accepting it as a source would let a file
+    # the run generated be frozen and hashed as the code that produced the result.
+    absent = sorted(
+        rel for rel in dict.fromkeys(sources + declared_input_paths)
+        if not (root / rel).is_file()
+    )
+    if absent:
+        parser.error(
+            "declared source or input does not exist before the run: " + ", ".join(absent)
+        )
+    assert_file_rel = relative(root, args.assert_file) if args.assert_file else None
+    assert_file_mtime_before = mtime_of(root, assert_file_rel) if assert_file_rel else None
     read_before = {
         rel: sha256_file(root / rel)
         for rel in dict.fromkeys(sources + declared_input_paths)
@@ -413,7 +441,7 @@ def main() -> int:
         "stderr_path": stderr_path.relative_to(root).as_posix(),
         # Assertions are verdicts about THIS execution. Inheriting a parent's `pass`
         # would hand formal verification evidence that was never produced.
-        "assertions": parse_assertions(args.assertions, args.assert_file, root),
+        "assertions": parse_assertions(args.assertions, args.assert_file, root, assert_file_mtime_before),
         "parent_run_id": args.rerun or None,
     }
     destination = run_dir / "RUN_MANIFEST.json"

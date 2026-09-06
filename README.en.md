@@ -93,7 +93,7 @@ python3 $S/record_run.py --project <p> --candidate CAND-A -- python3 code/try_a.
 # freezing costs only the declarations the tool cannot infer
 python3 $S/record_run.py --project <p> --official --capability CAP-Q1-001 \
   --source code/solve.py --input data/q1.csv:formal \
-  --output results/q1.json:claim --assert "feasibility=pass" -- python3 code/solve.py
+  --output results/q1.json:claim --assert-file results/assertions.json -- python3 code/solve.py
 
 # the value is read back through the locator, never transcribed
 python3 $S/index_result.py --project <p> --result-id RES-Q1-001 --run RUN-Q1-001 \
