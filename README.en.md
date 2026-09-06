@@ -184,7 +184,7 @@ python3 $S/plan_redo.py --project /path/to/project --changed code/solve.py
 The single canonical tree is `.agents/skills/cumcm-workflow/`.
 
 - **Codex** picks up `.agents/skills/` inside the repository; `agents/openai.yaml` supplies the display name and default prompt. Trigger with `$cumcm-workflow`.
-- **Claude Code** reads `.claude/skills/cumcm-workflow/SKILL.md`, a thin router into the canonical tree — it restates no rules, so the two cannot drift. `CLAUDE.md` at the root carries the engineering conventions. Copy `.claude/skills/cumcm-workflow/` into `~/.claude/skills/` to use it as a personal skill.
+- **Claude Code** reads `.claude/skills/cumcm-workflow/SKILL.md`, a thin router into the canonical tree — it restates no rules, so the two cannot drift. `CLAUDE.md` at the root carries the engineering conventions, and `AGENTS.md` is the same entry point under the name Codex looks for — a router that restates no rules, so the repository is maintained from either side against one set of invariants. Copy `.claude/skills/cumcm-workflow/` into `~/.claude/skills/` to use it as a personal skill.
 
 Both run the same scripts, which locate schemas and assets through `Path(__file__)` and do not care about the working directory.
 

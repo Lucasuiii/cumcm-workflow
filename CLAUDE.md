@@ -35,6 +35,13 @@ python3 -m compileall -q .agents/skills/cumcm-workflow/scripts tests
 
 When you add a rule ID, add the test that makes it fire and the test that proves it does not fire in `working` mode.
 
+Two habits, both learned from bugs the tests did not catch:
+
+- **Count the entry points before you stop.** A new invariant almost never has one. Claim-bearing outputs got an mtime check against leftovers; the assertion file that the whole declared/recorded split rests on did not, and a five-year-old file satisfied a verification plan. Declared outputs were compared across the execution; declared sources were only checked afterwards, so a file the run generated could be frozen as the code that produced the result. The checker rejected declared verdicts while four documents still showed `--assert "x=pass"` in the official-run example. Each time the rule was right and one of its doors was open. When you add one, list every place the same thing can enter, and fix them together.
+- **Re-run the known failure modes against new code.** The catalogue is short and it repeats: a leftover file standing in for this run's evidence, a superseded run still vouching for its replacement, a caller-typed value satisfying a check that means "measured", a free-text field whose only rule is non-empty. Take each one to anything you just wrote and ask whether it has that hole. This has found more real defects here than the test suite has, because the suite is written by the same person with the same blind spots.
+
+Verify a fix by reverting it and confirming the new test goes red. A test that passes with its fix removed asserts an outcome without asserting its precondition.
+
 ## Version bumps
 
 `WORKFLOW_VERSION` in `workflow_checks.py` and the recorders, the `const` in every schema, and `pyproject.toml`. The checker rejects any contract whose `schema_version` differs; that is intentional, and existing workspaces are re-initialised rather than migrated. Say so in the README when you bump.

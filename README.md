@@ -367,7 +367,7 @@ Verdict：`accepted` / `accepted_with_concerns` / `revision_required` / `inconcl
 唯一 canonical 树是 `.agents/skills/cumcm-workflow/`（SKILL.md、references、schemas、scripts、assets）。
 
 - **Codex**：仓库内 `.agents/skills/` 自动可见，`agents/openai.yaml` 提供展示名和默认提示词。用 `$cumcm-workflow` 触发。
-- **Claude Code**：`.claude/skills/cumcm-workflow/SKILL.md` 是指向 canonical 树的**薄路由**——它不复述任何规则，因此两个入口不会漂移；根目录 `CLAUDE.md` 是改这个仓库时的工程约定。在仓库里直接说"用 cumcm-workflow 初始化…"即可，也可以把 `.claude/skills/cumcm-workflow/` 复制到 `~/.claude/skills/`。
+- **Claude Code**：`.claude/skills/cumcm-workflow/SKILL.md` 是指向 canonical 树的**薄路由**——它不复述任何规则，因此两个入口不会漂移；根目录 `CLAUDE.md` 是改这个仓库时的工程约定，`AGENTS.md` 是给 Codex 的同名入口，只做路由、不复述规则——两边维护同一套不变式。在仓库里直接说"用 cumcm-workflow 初始化…"即可，也可以把 `.claude/skills/cumcm-workflow/` 复制到 `~/.claude/skills/`。
 
 两边执行同一套脚本，脚本用 `Path(__file__)` 定位 schema 和 assets，与工作目录无关。`tests/test_entry_points.py` 锁住这一点：路由提到的每个脚本必须真实存在，两个入口的 frontmatter 必须一致。
 

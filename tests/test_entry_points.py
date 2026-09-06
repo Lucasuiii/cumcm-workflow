@@ -52,6 +52,25 @@ class EntryPointTests(unittest.TestCase):
             with self.subTest(script=name):
                 self.assertTrue((SCRIPTS / name).is_file(), f"router names a script that does not exist: {name}")
 
+    def test_both_repo_editing_entry_points_lead_to_one_rule_set(self):
+        """The repository is maintained from Codex and from Claude Code.
+
+        CLAUDE.md holds the invariants; AGENTS.md is what Codex looks for. It routes and
+        restates nothing, the same shape as the Claude Code skill router, so a rule cannot
+        end up stated in one place and contradicted in the other.
+        """
+        agents = ROOT / "AGENTS.md"
+        self.assertTrue(agents.is_file(), "Codex has no repository-editing entry point")
+        text = agents.read_text(encoding="utf-8")
+        self.assertIn("CLAUDE.md", text)
+        self.assertIn(".agents/skills/cumcm-workflow/SKILL.md", text)
+        self.assertLess(len(text.encode("utf-8")), 2048, "AGENTS.md is long enough to be a second rule set")
+        claude_md = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        for invariant in ("Machine facts are recorded", "Declared is not recorded", "Two knobs only"):
+            with self.subTest(invariant=invariant):
+                self.assertIn(invariant, claude_md)
+                self.assertNotIn(invariant, text)
+
     def test_codex_manifest_still_present(self):
         manifest = CANONICAL / "agents" / "openai.yaml"
         self.assertTrue(manifest.is_file(), "the Codex entry point must survive the Claude Code addition")
