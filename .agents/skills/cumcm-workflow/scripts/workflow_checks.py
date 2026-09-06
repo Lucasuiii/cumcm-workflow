@@ -558,6 +558,43 @@ def check_model(data: Any, capability_ids: set[str], path: str, mode: str) -> li
     return findings
 
 
+def check_selection_check(data: Any, path: str) -> list[Finding]:
+    """The person confirms the model choice before anything expensive is computed.
+
+    This is the earliest and cheapest of the three checkpoints: nothing has been run,
+    so a rejection costs only the conversation. It is also the one with the most
+    leverage, because the judgement criterion is settled here and every result
+    downstream inherits it.
+    """
+    findings: list[Finding] = []
+    if not isinstance(data, dict):
+        return findings
+    declared: list[str] = []
+    for component in as_list(data.get("components")):
+        if not isinstance(component, dict):
+            continue
+        for candidate in as_list(component.get("candidates")):
+            if isinstance(candidate, dict):
+                candidate_id = item_id(candidate, "candidate_id")
+                if candidate_id:
+                    declared.append(candidate_id)
+    if not declared:
+        return findings
+    check = data.get("selection_check")
+    if not isinstance(check, dict) or check.get("decision") != "accepted":
+        findings.append(finding("MODEL-E016", "error", "semantic", "model-design", path, "the model choice must be confirmed before it is computed against", gate_only=True))
+        return findings
+    if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
+        findings.append(finding("MODEL-E017", "error", "semantic", "model-design", path, "an accepted selection check lacks reviewer or review time"))
+    presented = {str(value) for value in as_list(check.get("presented_candidate_ids"))}
+    unseen = sorted(set(declared) - presented)
+    if unseen:
+        findings.append(finding("MODEL-E018", "error", "semantic", "model-design", path, f"the model choice was accepted without these candidates being presented: {', '.join(unseen)}", related_ids=unseen))
+    if check.get("reviewer_kind") == "human_user" and not presented:
+        findings.append(finding("MODEL-E019", "error", "semantic", "model-design", path, "a selection check attributed to a person must record the candidates presented to them"))
+    return findings
+
+
 def check_model_candidates(
     data: Any,
     run_ids: set[str],
@@ -2176,6 +2213,7 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
         # Run references only make sense once runs are in scope for this check.
         runs_known = STAGES.index(stage) >= STAGES.index("computation")
         findings.extend(check_model_candidates(contracts["model"], run_ids, run_candidates, CONTRACT_PATHS["model"], mode, runs_known))
+        findings.extend(check_selection_check(contracts["model"], CONTRACT_PATHS["model"]))
     if frozen and "model" in contracts and STAGES.index(stage) >= STAGES.index("computation"):
         findings.extend(check_model_verification(contracts["model"], capability_assertions, CONTRACT_PATHS["model"]))
     if "results" in contracts:

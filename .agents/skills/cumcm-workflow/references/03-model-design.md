@@ -20,6 +20,7 @@ computation             cheap exploratory runs, one per candidate
       v
 selection               exactly one candidate becomes `selected`,
       |                 with a rationale that cites those runs
+      |                 --- the person confirms the choice here ---
       v
 official computation    only the selected model earns record_run.py --official
       |
@@ -28,6 +29,18 @@ validation
 ```
 
 Model design does not choose the model. It sets up the comparison so that computation can settle it.
+
+## The checkpoint at selection
+
+Before a candidate becomes `selected`, put the choice in front of the person and record the answer in `MODEL_CONTRACT.selection_check`. This is the earliest of the three checkpoints and the cheapest: nothing has been computed, so a rejection costs only the conversation. It is also the one with the most leverage, because everything downstream inherits the judgement criterion settled here.
+
+Show three things:
+
+1. **What is being optimized, and under what constraints.** State the criterion in one line. A criterion that controls only one kind of error, or optimizes only one side of a tradeoff, is visible here and nowhere else — by validation it has already shaped every result.
+2. **Each candidate's `discriminating_evidence`, and whether it can actually discriminate.** If both candidates would produce the same value of the named evidence, the comparison is decorative.
+3. **The `scope` the selected model will claim.** Whatever is written here is what validation must later cover; a scope wider than the evidence is a P0 finding at that point, so it is worth narrowing now.
+
+`presented_candidate_ids` records what was shown. `MODEL-E018` rejects an acceptance that did not present every declared candidate — showing only the winner is not a comparison — and `MODEL-E016` keeps the choice unconfirmed until someone answers. Both are review-only in `working`, so exploration is not interrupted; they bite when the work is frozen.
 
 ## Candidates
 

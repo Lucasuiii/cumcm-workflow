@@ -172,6 +172,14 @@ def build_valid_project(root: Path) -> None:
     write_json(root, "analysis/TASK_CAPABILITIES.json", capabilities)
 
     model = envelope("model_contract")
+    model["selection_check"] = {
+        "decision": "accepted",
+        "reviewer": "fixture-user",
+        "reviewed_at": "2026-08-30T12:00:00Z",
+        "reviewer_kind": "human_user",
+        "presented_candidate_ids": ["CAND-Q1-ENUM", "CAND-Q1-DP"],
+        "notes": "Both candidates and the discriminating evidence were shown before the choice.",
+    }
     model["components"] = [
         {
             "model_id": "MODEL-Q1-001",

@@ -90,6 +90,14 @@ def make_project(temp: Path) -> Path:
     # Selection means -- variables, inputs, outputs and the verification plan are
     # written once computation has told us what the model actually is.
     model = envelope("model_contract")
+    model["selection_check"] = {
+        "decision": "accepted",
+        "reviewer": "fixture-user",
+        "reviewed_at": "2026-08-30T12:00:00Z",
+        "reviewer_kind": "human_user",
+        "presented_candidate_ids": ["CAND-ENUM", "CAND-GREEDY"],
+        "notes": "Both candidates were shown before the choice.",
+    }
     model["components"] = [{
         "model_id": "MODEL-Q1-001", "capability_ids": ["CAP-Q1-001"],
         "method": "complete enumeration over the declared candidate set",

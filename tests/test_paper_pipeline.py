@@ -596,6 +596,34 @@ class HumanCheckpointTests(unittest.TestCase):
             self.assertEqual(len(hit), 1)
             self.assertIn("2, 3", hit[0].message)
 
+    def test_the_model_choice_must_be_confirmed_before_it_is_computed_against(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "model" / "MODEL_CONTRACT.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["selection_check"]["decision"] = "unreviewed"
+            write_json(root, "model/MODEL_CONTRACT.json", data)
+            hit = [item for item in check_project(root, "delivery", "preflight")[0] if item.rule_id == "MODEL-E016"]
+            self.assertEqual(len(hit), 1)
+            self.assertTrue(hit[0].gate_only)
+
+    def test_candidates_must_be_presented_before_the_choice_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            path = root / "model" / "MODEL_CONTRACT.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            declared = [c["candidate_id"] for c in data["components"][0]["candidates"]]
+            self.assertGreater(len(declared), 1)
+            # only the winner was shown, so the comparison the person signed off on
+            # never actually happened in front of them
+            data["selection_check"]["presented_candidate_ids"] = [declared[0]]
+            write_json(root, "model/MODEL_CONTRACT.json", data)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "MODEL-E018"]
+            self.assertEqual(len(hit), 1)
+            self.assertIn(declared[1], hit[0].message)
+
     def test_the_paper_report_no_longer_carries_its_own_approvals(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -8,7 +8,8 @@
   ],
   "type": "object",
   "required": [
-    "components"
+    "components",
+    "selection_check"
   ],
   "properties": {
     "artifact_type": {
@@ -126,6 +127,59 @@
         "additionalProperties": true,
         "description": "Draft contracts carry method and scope only; variables, inputs, outputs and verification_plan become mandatory when the project enters finalizing (enforced by check_model, not by this schema)."
       }
+    },
+    "selection_check": {
+      "type": "object",
+      "description": "The person confirms the model choice while nothing has been computed yet, so a rejection here is free. presented_candidate_ids records which alternatives were actually put in front of them.",
+      "required": [
+        "decision",
+        "reviewer",
+        "reviewed_at",
+        "reviewer_kind",
+        "presented_candidate_ids",
+        "notes"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "unreviewed",
+            "accepted",
+            "revision_requested"
+          ]
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewer_kind": {
+          "enum": [
+            "human_user",
+            "same_context_model"
+          ]
+        },
+        "presented_candidate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

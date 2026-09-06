@@ -30,8 +30,9 @@ Switch with `scripts/set_mode.py`. There is no `strict`/`sprint` profile in v0.6
 
 ## Where a person is asked
 
-Two checkpoints, and each records what was put in front of the person, not only what they decided. A decision with nothing presented is not evidence that anyone looked.
+Three checkpoints, one per block, and each records what was put in front of the person, not only what they decided. A decision with nothing presented is not evidence that anyone looked. They sit in front of the three cost steps: rejecting a model choice costs a conversation, rejecting a conclusion costs a recomputation, rejecting a finished paper costs a rewrite.
 
+- **`MODEL_CONTRACT.selection_check`**, before a candidate becomes `selected`: the judgement criterion, each candidate's `discriminating_evidence`, and the `scope` the winner will claim. `presented_candidate_ids` must cover every candidate (`MODEL-E018`) — showing only the winner is not a comparison.
 - **`CLAIM_LEDGER.conclusion_check`**, before `validation-paper`: the conclusions themselves — claim text, `scope`, evidence state, open P0/P1. No run ids, no hashes. `presented_claim_ids` must cover every declared claim (`CLAIM-E023`). This is the cheap place to hear no; the same objection at delivery costs a rewritten paper.
 - **`DELIVERY_MANIFEST.final_check`**, before submission: the finished object — rendered pages, the answer to each subproblem, open findings. `presented_pages` must cover every rendered page (`DELIVERY-E020`), and `human_user` is not claimable with nothing presented (`DELIVERY-E019`).
 
