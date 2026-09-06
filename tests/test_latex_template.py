@@ -56,6 +56,7 @@ def build_inputs(root: Path, problem_ids: tuple[str, ...] = ("Q1", "Q2"), plan_i
     plan = envelope("paper_plan")
     plan.update(
         {
+            "authoring_task_ref": "fixture-paper-task",
             "claim_selection": [
                 {"claim_id": f"CLM-{ident}", "subproblem_id": ident, "purpose": f"answer {ident}"}
                 for ident in problem_ids

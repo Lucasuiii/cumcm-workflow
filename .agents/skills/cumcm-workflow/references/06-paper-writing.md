@@ -17,7 +17,7 @@ Treat handoff `representation_candidates` as prompts for judgment, not a prescri
 
 Sections are not independent essays stapled together. Each one states, in its opening sentence or two, why the previous section made it necessary: a quantity the previous model left unknown, an approximation that has to be checked, a decision the previous result did not settle. Questions that are formally independent are still tied together by the shared object, data, or mechanism they act on. A reader should be able to say what breaks if a section is removed. This costs a sentence per section and it is the difference between an argument and a list.
 
-`PAPER_PLAN.json` still needs only `claim_selection`, `representation_plan`, and `paper_structure`. Legacy argument layers, reference-paper counts, page budgets, and figure counts may remain optional notes but are not hard gates. A plan with no table/figure creates a warning to reconsider communication, not a failure.
+`PAPER_PLAN.json` needs `claim_selection`, `representation_plan`, `paper_structure`, and `authoring_task_ref` — the task writing the paper, which must differ from the `validation-paper` handoff's `producing_task_ref` (see `references/handoffs.md`). Legacy argument layers, reference-paper counts, page budgets, and figure counts may remain optional notes but are not hard gates. A plan with no table/figure creates a warning to reconsider communication, not a failure.
 
 ## Abstract and keywords
 

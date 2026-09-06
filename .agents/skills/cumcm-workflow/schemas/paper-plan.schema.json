@@ -10,7 +10,8 @@
   "required": [
     "claim_selection",
     "representation_plan",
-    "paper_structure"
+    "paper_structure",
+    "authoring_task_ref"
   ],
   "properties": {
     "artifact_type": {
@@ -137,6 +138,13 @@
         },
         "additionalProperties": true
       }
+    },
+    "authoring_task_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Task/conversation writing the paper. Must differ from the validation-paper handoff's producing_task_ref."
     }
   }
 }

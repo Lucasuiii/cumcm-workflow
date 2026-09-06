@@ -109,7 +109,6 @@
       "type": "object",
       "required": [
         "status",
-        "selected_by",
         "reviewer",
         "model",
         "originating_task_ref",
@@ -119,7 +118,7 @@
         "status": {
           "enum": [
             "unreviewed",
-            "user_confirmed"
+            "recorded"
           ]
         },
         "selected_by": {

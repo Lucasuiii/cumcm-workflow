@@ -60,6 +60,7 @@ def build_paper_ready_project(root: Path, *, decisions: tuple[str, ...] | None =
     plan = envelope("paper_plan")
     plan.update(
         {
+            "authoring_task_ref": "fixture-paper-task",
             "claim_selection": [
                 {"claim_id": "CLM-Q1-001", "subproblem_id": "Q1", "purpose": "answer Q1 directly"}
             ],
@@ -262,8 +263,14 @@ def build_paper_ready_project(root: Path, *, decisions: tuple[str, ...] | None =
     )}
     write_json(root, ".cumcm/state.json", state)
 
+    # Distinct refs on the two cut transitions: the reviewer is not the task that
+    # produced the evidence, and the paper is not written by the task that reviewed it.
+    producing_task_refs = {
+        "computation-validation": "fixture-modeling-task",
+        "validation-paper": "fixture-independent-task",
+    }
     for transition in ("modeling-computation", "computation-validation", "validation-paper", "paper-delivery"):
-        build_handoff(root, transition)
+        build_handoff(root, transition, producing_task_refs.get(transition))
 
     record_decisions(
         root,
@@ -472,6 +479,76 @@ class PaperPipelineTests(unittest.TestCase):
         ]
         for path in targets:
             self.assertNotIn("python scripts/cumcm_check.py", path.read_text(encoding="utf-8"))
+
+
+class TaskSeparationTests(unittest.TestCase):
+    """The two cut transitions must be crossed in a fresh task.
+
+    The refs are self-reported, so these checks are a paste guard, not proof. What they
+    catch is the case the workflow actually cares about: one task producing the evidence
+    and also reviewing it, or one task reviewing the work and also writing it up.
+    """
+
+    HANDOFFS = {
+        "computation-validation": "handoffs/computation-validation/HANDOFF.json",
+        "validation-paper": "handoffs/validation-paper/HANDOFF.json",
+    }
+
+    def set_producing_ref(self, root: Path, transition: str, value: object) -> None:
+        rel = self.HANDOFFS[transition]
+        data = json.loads((root / rel).read_text(encoding="utf-8"))
+        data["producing_task_ref"] = value
+        write_json(root, rel, data)
+
+    def test_reviewer_running_in_the_producing_task_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            self.assertNotIn("HANDOFF-E010", {item.rule_id for item in check_project(root, "delivery")[0]})
+            result = json.loads((root / "validation" / "INDEPENDENT_REVIEW_RESULT.json").read_text(encoding="utf-8"))
+            collision = result["reviewer_context"]["task_ref"]
+            self.set_producing_ref(root, "computation-validation", collision)
+            findings, _ = check_project(root, "delivery")
+            hit = [item for item in findings if item.rule_id == "HANDOFF-E010"]
+            self.assertEqual(len(hit), 1)
+            self.assertEqual(hit[0].severity, "error")
+            self.assertIn(collision, hit[0].message)
+
+    def test_paper_written_in_the_reviewing_task_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            plan = json.loads((root / "paper" / "PAPER_PLAN.json").read_text(encoding="utf-8"))
+            self.set_producing_ref(root, "validation-paper", plan["authoring_task_ref"])
+            findings, _ = check_project(root, "delivery")
+            hit = [item for item in findings if item.rule_id == "HANDOFF-E010"]
+            self.assertEqual(len(hit), 1)
+            self.assertEqual(hit[0].owning_stage, "paper")
+
+    def test_a_handoff_without_a_producing_ref_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            self.set_producing_ref(root, "computation-validation", None)
+            hit = [item for item in check_project(root, "delivery")[0] if item.rule_id == "HANDOFF-E009"]
+            self.assertEqual([item.severity for item in hit], ["error"])
+            self.assertIn("--task-ref", hit[0].message)
+
+    def test_review_package_no_longer_waits_on_a_user_confirmation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            rel = "validation/independent-review-package/REVIEW_PACKAGE_MANIFEST.json"
+            package = json.loads((root / rel).read_text(encoding="utf-8"))
+            self.assertEqual(package["reviewer_selection"]["status"], "recorded")
+            self.assertNotIn("selected_by", package["reviewer_selection"])
+            result = json.loads((root / "validation" / "INDEPENDENT_REVIEW_RESULT.json").read_text(encoding="utf-8"))
+            self.assertNotIn("selected_by_user", result["reviewer_context"])
+            findings, summary = check_project(root, "delivery", "enforce")
+            codes = {item.rule_id for item in findings}
+            self.assertNotIn("IREVIEW-E005", codes)
+            self.assertNotIn("IREVIEW-E008", codes)
+            self.assertEqual(summary["blocking_error_count"], 0)
 
 
 if __name__ == "__main__":

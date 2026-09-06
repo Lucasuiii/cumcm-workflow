@@ -114,7 +114,7 @@ Project state defaults to `{"preferred":"matlab","fallback":"python","selection"
 
 Independent validation uses `accepted`, `accepted_with_concerns`, `revision_required`, `inconclusive`. Only an open P0 permits `revision_required`. After a full review finds P0 issues, the next package defaults to a targeted re-review of exactly those findings.
 
-The review package copies only canonical evidence for formally indexed results and records `context_excluded` — the prior reasoning it physically left out. It does not claim the reviewer holds no opinion. The result template leaves every independence field `null`: the reviewer or the user must assert them, and a null fails `IREVIEW-E027`.
+The review package copies only canonical evidence for formally indexed results and records `context_excluded` — the prior reasoning it physically left out. It does not claim the reviewer holds no opinion. The result template leaves every independence field `null`: the reviewer must assert them, and a null fails `IREVIEW-E027`. The user no longer confirms the reviewer; separation comes from the cut instead — `computation-validation` and `validation-paper` carry the task that built them, and a consuming task that matches is `HANDOFF-E010`. See `references/handoffs.md`.
 
 ## Iterating
 

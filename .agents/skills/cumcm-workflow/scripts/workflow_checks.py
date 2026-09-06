@@ -1042,10 +1042,10 @@ def check_independent_review_package(data: Any, root: Path, path: str) -> list[F
         if previous is None or not previous.is_file() or not target_ids or targeted_error or packaged_ids != target_ids or not targeted_is_self_contained:
             findings.append(finding("IREVIEW-E018", "error", "semantic", "validation", path, "targeted re-review requires previous-review provenance and a self-contained target P0 finding brief"))
     selection = data.get("reviewer_selection")
-    if not isinstance(selection, dict) or selection.get("status") != "user_confirmed":
-        findings.append(finding("IREVIEW-E005", "error", "semantic", "validation", path, "the user must choose and confirm the reviewer before validation", gate_only=True))
-    elif not all(nonempty(selection.get(field)) for field in ("selected_by", "reviewer", "originating_task_ref", "task_ref")):
-        findings.append(finding("IREVIEW-E006", "error", "structural", "validation", path, "confirmed reviewer selection lacks user, reviewer, originating-task, or reviewer-task reference"))
+    if not isinstance(selection, dict) or selection.get("status") != "recorded":
+        findings.append(finding("IREVIEW-E005", "error", "structural", "validation", path, "the review package must record which task reviews it before validation"))
+    elif not all(nonempty(selection.get(field)) for field in ("reviewer", "originating_task_ref", "task_ref")):
+        findings.append(finding("IREVIEW-E006", "error", "structural", "validation", path, "recorded reviewer selection lacks reviewer, originating-task, or reviewer-task reference"))
     elif selection.get("originating_task_ref") == selection.get("task_ref"):
         findings.append(finding("IREVIEW-E026", "error", "semantic", "validation", path, "originating and reviewer task references must differ"))
     return findings
@@ -1068,7 +1068,7 @@ def check_independent_review_result(data: Any, root: Path, path: str, package: A
         return findings
     unanswered = sorted(
         field
-        for field in ("reviewer_kind", "different_conversation", "selected_by_user", "independence_grade")
+        for field in ("reviewer_kind", "different_conversation", "independence_grade")
         if context.get(field) is None
     )
     if unanswered:
@@ -1082,14 +1082,12 @@ def check_independent_review_result(data: Any, root: Path, path: str, package: A
                 "reviewer independence must be positively asserted, not left at the template default: " + ", ".join(unanswered),
             )
         )
-    if context.get("selected_by_user") is not True:
-        findings.append(finding("IREVIEW-E008", "error", "semantic", "validation", path, "independent reviewer was not selected by the user"))
     if context.get("different_conversation") is not True or context.get("reviewer_kind") == "same_context_model" or context.get("independence_grade") == "correlated_self_review":
         findings.append(finding("IREVIEW-E009", "error", "semantic", "validation", path, "same-context or correlated self-review cannot satisfy the independent review gate"))
     selection = package.get("reviewer_selection") if isinstance(package, dict) else None
     if isinstance(selection, dict):
         if selection.get("reviewer") != context.get("reviewer") or selection.get("task_ref") != context.get("task_ref"):
-            findings.append(finding("IREVIEW-E010", "error", "structural", "validation", path, "imported reviewer identity does not match the user-confirmed selection"))
+            findings.append(finding("IREVIEW-E010", "error", "structural", "validation", path, "imported reviewer identity does not match the recorded selection"))
     raw_path = safe_project_path(root, data.get("raw_review_path"))
     if raw_path is None or not raw_path.is_file() or raw_path.stat().st_size == 0:
         findings.append(finding("IREVIEW-E011", "error", "structural", "validation", path, "raw independent review is missing"))
@@ -1673,6 +1671,64 @@ def check_handoff(data: Any, root: Path, path: str, expected_transition: str) ->
     return findings
 
 
+CUT_CONSUMERS = {
+    "handoff_computation_validation": ("computation-validation", "validation", "independent_review_result"),
+    "handoff_validation_paper": ("validation-paper", "paper", "paper_plan"),
+}
+
+
+def consuming_task_ref(name: str, contract: Any) -> Any:
+    """The task ref the downstream artifact reports for itself."""
+    if not isinstance(contract, dict):
+        return None
+    if name == "independent_review_result":
+        context = contract.get("reviewer_context")
+        return context.get("task_ref") if isinstance(context, dict) else None
+    return contract.get("authoring_task_ref")
+
+
+def check_task_separation(contracts: dict[str, Any]) -> list[Finding]:
+    """Two handoffs must cross a task boundary: evidence -> review, and review -> paper.
+
+    The refs are self-reported, so this is a paste guard rather than proof; it catches
+    the case the workflow actually cares about, one task doing both sides of a cut.
+    Handoff contracts load only while finalizing, so these findings never appear in
+    working mode and carry no mode branch of their own.
+    """
+    findings: list[Finding] = []
+    for name, (transition, stage, consumer_name) in CUT_CONSUMERS.items():
+        handoff = contracts.get(name)
+        if not isinstance(handoff, dict):
+            continue
+        path = CONTRACT_PATHS[name]
+        produced = handoff.get("producing_task_ref")
+        consumer = contracts.get(consumer_name)
+        consumed = consuming_task_ref(consumer_name, consumer)
+        if not nonempty(produced):
+            findings.append(
+                finding(
+                    "HANDOFF-E009",
+                    "error",
+                    "structural",
+                    stage,
+                    path,
+                    f"{transition} handoff does not record the task that produced it; rebuild it with build_handoff.py --task-ref",
+                )
+            )
+        elif nonempty(consumed) and str(produced) == str(consumed):
+            findings.append(
+                finding(
+                    "HANDOFF-E010",
+                    "error",
+                    "semantic",
+                    stage,
+                    path,
+                    f"{transition} was produced and consumed by the same task ({produced}); this cut must be crossed in a fresh task",
+                )
+            )
+    return findings
+
+
 TRANSITIONS_FOR_CHECK = {
     "modeling-computation": ("model-design", "computation"),
     "computation-validation": ("computation", "validation"),
@@ -2148,6 +2204,7 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
         if name in contracts:
             findings.extend(check_schema(contracts[name], name, owning_stage_for_contract(name), CONTRACT_PATHS[name]))
             findings.extend(check_handoff(contracts[name], root, CONTRACT_PATHS[name], transition))
+    findings.extend(check_task_separation(contracts))
 
     if frozen:
         findings.extend(check_decision_log(root, contracts.get("state")))

@@ -206,7 +206,6 @@ def build(project: Path, *, review_mode: str = "auto", previous_review_path: str
                 "model": "REPLACE",
                 "task_ref": "REPLACE",
                 "different_conversation": None,
-                "selected_by_user": None,
                 "independence_grade": None,
             },
             "verdict": "inconclusive",
@@ -250,7 +249,7 @@ def build(project: Path, *, review_mode: str = "auto", previous_review_path: str
             # about what the reviewer happens to believe.
             "context_excluded": sorted(REQUIRED_CONTEXT_EXCLUSIONS),
             "files": sorted(records, key=lambda item: item["path"]),
-            "reviewer_selection": {"status": "unreviewed", "selected_by": None, "reviewer": None, "model": None, "originating_task_ref": None, "task_ref": None},
+            "reviewer_selection": {"status": "unreviewed", "reviewer": None, "model": None, "originating_task_ref": None, "task_ref": None},
         }
         (staging / "REVIEW_PACKAGE_MANIFEST.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

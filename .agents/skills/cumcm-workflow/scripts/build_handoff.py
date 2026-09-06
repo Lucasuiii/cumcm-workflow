@@ -23,6 +23,10 @@ TRANSITIONS = {
     "validation-paper": ("validation", "paper"),
     "paper-delivery": ("paper", "delivery"),
 }
+# The two transitions that must cross a task boundary: the reviewer must not be the
+# task that produced the evidence, and the paper must not be written by the task that
+# reviewed it. Self-reported task refs are a paste guard, not proof of separation.
+CUT_TRANSITIONS = ("computation-validation", "validation-paper")
 BASE_PATHS = {
     "modeling-computation": [
         ("problem/SOURCE_MANIFEST.json", "source_manifest"),
@@ -324,7 +328,7 @@ def build_payload(root: Path, transition: str, state: dict[str, Any]) -> dict[st
     }
 
 
-def build(root: Path, transition: str) -> Path:
+def build(root: Path, transition: str, task_ref: str | None = None) -> Path:
     root = root.resolve()
     if transition not in TRANSITIONS:
         raise ValueError(f"unknown transition: {transition}")
@@ -382,6 +386,7 @@ def build(root: Path, transition: str) -> Path:
         "transition": transition,
         "upstream_stage": upstream,
         "downstream_stage": downstream,
+        "producing_task_ref": task_ref or None,
         "upstream_digest": digest_records(records),
         "canonical_artifacts": sorted(records, key=lambda item: item["path"]),
         "payload": build_payload(root, transition, state),
@@ -401,9 +406,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build a compact v0.6 cross-stage handoff")
     parser.add_argument("--project", required=True, type=Path)
     parser.add_argument("--transition", required=True, choices=sorted(TRANSITIONS))
+    parser.add_argument(
+        "--task-ref",
+        help="identifier of the task building this handoff; required for the two transitions that must cross a task boundary",
+    )
     args = parser.parse_args()
+    if args.transition in CUT_TRANSITIONS and not (args.task_ref or "").strip():
+        parser.error(f"--task-ref is required for {args.transition}: the consuming stage must run in a different task")
     try:
-        destination = build(args.project, args.transition)
+        destination = build(args.project, args.transition, args.task_ref)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     print(f"wrote fresh handoff: {destination}")

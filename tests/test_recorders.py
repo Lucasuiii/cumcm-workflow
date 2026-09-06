@@ -715,6 +715,7 @@ class CompileRecorderTests(unittest.TestCase):
             project = make_project(Path(temp))
             plan = envelope("paper_plan")
             plan.update({
+                "authoring_task_ref": "fixture-paper-task",
                 "claim_selection": [{"claim_id": "CLM-Q1-001", "subproblem_id": "Q1", "purpose": "answer Q1"}],
                 "representation_plan": [],
                 "paper_structure": [{"section_id": "SEC-Q1", "title": "候选集枚举", "purpose": "answer Q1",

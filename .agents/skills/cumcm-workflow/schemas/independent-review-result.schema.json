@@ -62,7 +62,6 @@
         "model",
         "task_ref",
         "different_conversation",
-        "selected_by_user",
         "independence_grade"
       ],
       "properties": {

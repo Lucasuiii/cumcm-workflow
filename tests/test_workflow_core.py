@@ -312,8 +312,7 @@ def build_valid_project(root: Path) -> None:
             "context_excluded": ["debug_history", "failed_runs", "originating_task_transcript", "prior_review_prose"],
             "files": package_files,
             "reviewer_selection": {
-                "status": "user_confirmed",
-                "selected_by": "fixture-user",
+                "status": "recorded",
                 "reviewer": "fixture-reviewer",
                 "model": "fixture-model",
                 "originating_task_ref": "fixture-origin-task",
@@ -338,7 +337,6 @@ def build_valid_project(root: Path) -> None:
                 "model": "fixture-model",
                 "task_ref": "fixture-independent-task",
                 "different_conversation": True,
-                "selected_by_user": True,
                 "independence_grade": "independent",
             },
             "verdict": "accepted",

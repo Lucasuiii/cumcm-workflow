@@ -109,8 +109,7 @@ class ModesAndReviewTests(unittest.TestCase):
             package_path = build_review_package(root)
             package = json.loads(package_path.read_text(encoding="utf-8"))
             package["reviewer_selection"] = {
-                "status": "user_confirmed",
-                "selected_by": "fixture-user",
+                "status": "recorded",
                 "reviewer": "fixture-reviewer",
                 "model": "fixture-model",
                 "originating_task_ref": "fixture-origin-task",
