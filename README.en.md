@@ -12,30 +12,30 @@ Have **Codex or Claude Code**, **Python 3.10+**, and a local folder containing t
 
 Choose your environment and path format:
 
-- **macOS / MacBook**: run the commands below in Terminal (zsh/bash). Example materials path: `/Users/yourname/Documents/official-materials`.
-- **Windows (WSL2 recommended)**: clone the repository and run the agent and workflow tools in the WSL2 Linux environment. Windows `C:\Users\yourname\Documents\official-materials` typically maps to `/mnt/c/Users/yourname/Documents/official-materials`; a new project can use `/home/your-wsl-username/cumcm-projects/2026B`. Python, the selected computation backend and XeLaTeX must be available in the execution environment; do not assume WSL automatically detects Windows installations.
+- **macOS / MacBook**: open Codex or Claude Code with local file and terminal access. Example materials path: `/Users/yourname/Documents/official-materials`.
+- **Windows (WSL2 recommended)**: run the agent and workflow tools in the WSL2 Linux environment; let the agent download the repository. Windows `C:\Users\yourname\Documents\official-materials` typically maps to `/mnt/c/Users/yourname/Documents/official-materials`; a new project can use `/home/your-wsl-username/cumcm-projects/2026B`. Python, the selected computation backend and XeLaTeX must be available in the execution environment; do not assume WSL automatically detects Windows installations.
 - **Native Windows PowerShell**: Bash examples, especially `$S`, `$PWD` and `ln -s`, require adaptation. CI currently runs on Linux; native Windows has not been fully validated. WSL2 is a recommended route, not a claim of completed Windows end-to-end testing.
 
 Use paths as seen by the **agent's execution environment** in your prompt; do not mix Windows and WSL path formats.
 
-1. Clone the repository:
+Open a writable local working directory and send the prompt below to the AI. No manual download or prior Skill installation is needed. Replace the materials and output paths with your own **absolute paths**; the output directory should not exist yet. The agent needs network access, local file access and terminal execution permissions.
 
-   ```bash
-   git clone https://github.com/Lucasuiii/cumcm-workflow.git
-   cd cumcm-workflow
-   ```
+```text
+Use the latest main workflow from https://github.com/Lucasuiii/cumcm-workflow.
+First git clone the repository into a separate tools directory within the current
+writable working directory, apart from official materials and project output.
+If a checkout from the same repository exists, inspect its version and local changes;
+do not overwrite existing work. Create a separate clean checkout if needed.
+Read .agents/skills/cumcm-workflow/SKILL.md inside the downloaded repository,
+follow its contest-solving workflow, and invoke scripts using the Skill's absolute path.
+Initialize from /absolute/path/to/official-materials,
+with output in /absolute/path/to/new-project.
+Check Python dependencies and the runtime environment before problem analysis.
+Stop for my explicit confirmation at model selection, conclusions before paper
+writing, and final delivery.
+```
 
-2. Open this repository directory as a project in Codex, or start Claude Code from this directory.
-3. Send the prompt below, replacing both paths with your own **absolute paths**. Use a new output directory that does not yet exist, separate from the repository and original materials.
-
-   ```text
-   Use cumcm-workflow to initialize a project from /absolute/path/to/official-materials,
-   with output in /absolute/path/to/new-project. Check Python dependencies and the
-   runtime environment first, then begin problem analysis following the workflow.
-   Stop and wait for my reply at each human checkpoint.
-   ```
-
-   In Codex, explicitly invoke `$cumcm-workflow`; in Claude Code, use `/cumcm-workflow`.
+If the Skill is already installed, you can also invoke `$cumcm-workflow` in Codex or `/cumcm-workflow` in Claude Code. For first use, the prompt above is sufficient.
 
 The agent checks required dependencies on first use; computation uses MATLAB or Python, and paper compilation requires XeLaTeX. You do not need to prefill contracts or run every script yourself. Participate in the three human checkpoints: model selection, conclusions before paper writing, and final delivery. After an interruption, provide the output directory in the same project conversation and ask to resume cumcm-workflow.
 

@@ -14,29 +14,27 @@
 
 启动环境与路径：
 
-- **macOS / MacBook**：在终端（zsh/bash）中执行下方命令。资料路径示例：`/Users/你的名字/Documents/赛题资料`。
-- **Windows（推荐 WSL2）**：在 WSL2 的 Linux 终端中克隆仓库并运行 agent 与工作流工具。Windows 的 `C:\Users\你的名字\Documents\赛题资料` 在 WSL 中通常对应 `/mnt/c/Users/你的名字/Documents/赛题资料`；新项目路径可用 `/home/你的WSL用户名/cumcm-projects/2026B`。Python、所选计算后端和 XeLaTeX 须在实际执行环境中可用，不能假定 Windows 上的安装会被 WSL 自动识别。
+- **macOS / MacBook**：打开有本地文件和终端访问能力的 Codex 或 Claude Code。资料路径示例：`/Users/你的名字/Documents/赛题资料`。
+- **Windows（推荐 WSL2）**：在 WSL2 的 Linux 环境中运行 agent 与工作流工具，由 agent 下载仓库。Windows 的 `C:\Users\你的名字\Documents\赛题资料` 在 WSL 中通常对应 `/mnt/c/Users/你的名字/Documents/赛题资料`；新项目路径可用 `/home/你的WSL用户名/cumcm-projects/2026B`。Python、所选计算后端和 XeLaTeX 须在实际执行环境中可用，不能假定 Windows 上的安装会被 WSL 自动识别。
 - **Windows 原生 PowerShell**：文中的 Bash 示例（尤其 `$S`、`$PWD`、`ln -s`）需要改写，不能直接照抄。当前 CI 在 Linux 上运行，尚未完整验证 Windows 原生环境；WSL2 是推荐路径，并非已完成 Windows 端到端验证的声明。
 
 提示词里的资料路径与输出路径必须使用 **agent 实际运行环境**的路径格式，不要混用 Windows 与 WSL 路径。
 
-1. 下载仓库：
+打开一个可写的本地工作目录，直接把下面的提示发给 AI，无需手动下载仓库或预先安装 Skill。将资料路径与输出路径替换成自己的**绝对路径**；输出目录应是尚不存在的新目录。AI 需要具备联网、读写本地文件和执行终端命令的权限。
 
-   ```bash
-   git clone https://github.com/Lucasuiii/cumcm-workflow.git
-   cd cumcm-workflow
-   ```
+```text
+请使用 https://github.com/Lucasuiii/cumcm-workflow 的最新 main 工作流完成建模。
+先在当前可写工作目录中 git clone 该仓库，存放到独立的工具目录，
+与官方资料和项目输出分开。若已有同源仓库，先检查版本与本地改动，
+不要覆盖已有内容；必要时另建干净副本。
+读取下载目录中的 .agents/skills/cumcm-workflow/SKILL.md，
+按它进入解题流程，并使用该 Skill 的绝对路径调用脚本。
+从 /绝对路径/赛题资料 初始化项目，输出到 /绝对路径/新项目目录。
+先检查 Python 依赖和运行环境，再开始题目分析。
+在模型选择、写论文前的结论、最终交付三个节点停下来等我明确确认。
+```
 
-2. 在 Codex 中将这个仓库目录作为项目打开；或在此目录启动 Claude Code。
-3. 在对话中发送以下提示，把两个路径替换成自己的**绝对路径**。输出目录应是尚不存在的新目录，与仓库、原始资料分开。
-
-   ```text
-   使用 cumcm-workflow，从 /绝对路径/赛题资料 初始化项目，
-   输出到 /绝对路径/新项目目录。先检查 Python 依赖和运行环境，
-   然后按工作流开始题目分析；需要人工确认时停下来等我回复。
-   ```
-
-   Codex 可用 `$cumcm-workflow` 明确触发；Claude Code 可用 `/cumcm-workflow`。
+已安装 Skill 时，也可用 Codex 的 `$cumcm-workflow` 或 Claude Code 的 `/cumcm-workflow` 触发；首次启动直接使用上述提示即可。
 
 首次使用由 agent 检查所需依赖；计算阶段选择 MATLAB 或 Python，论文编译需要 XeLaTeX。你无需预先填写契约或运行每个脚本，但需要参与模型选择、写论文前的结论和最终交付三个确认点。中断后，在同一项目对话中提供输出目录并要求“继续 cumcm-workflow”。
 
