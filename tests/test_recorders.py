@@ -21,6 +21,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from init_project import initialize  # noqa: E402
 from plan_redo import build_plan  # noqa: E402
+from test_workflow_core import write_accepted_snapshot
 from workflow_checks import check_project  # noqa: E402
 
 PROJECT_ID = "RECORDER-2026-A"
@@ -107,7 +108,13 @@ def make_project(temp: Path) -> Path:
         "method": "complete enumeration over the declared candidate set",
         "scope": "declared candidates only; no continuous relaxation",
     }]
+    model["components"][0]["candidates"] = [{
+        "candidate_id": "CAND-ENUM", "status": "selected", "method": "complete enumeration",
+        "why_considered": "finite search", "discriminating_evidence": ["exact small case"],
+        "decision_rationale": "exact within the finite scope",
+    }]
     write_json(project, "model/MODEL_CONTRACT.json", model)
+    write_accepted_snapshot(project, "model-design", ["model/MODEL_CONTRACT.json"])
 
     (project / "code").mkdir(exist_ok=True)
     (project / "code" / "solve.py").write_text(SOLVER, encoding="utf-8")
@@ -615,6 +622,7 @@ class CandidateSelectionTests(unittest.TestCase):
             for candidate in component["candidates"]:
                 candidate[key] = value
         model_path.write_text(json.dumps(model, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_accepted_snapshot(project, "model-design", ["model/MODEL_CONTRACT.json"])
         return model
 
     def evaluate_both(self, project: Path) -> None:
@@ -673,7 +681,9 @@ class CandidateSelectionTests(unittest.TestCase):
             project = make_project(Path(temp))
             self.evaluate_both(project)
             self.with_candidates(project, status="under_evaluation")
-            RecorderTests.record_official(self, project)
+            done = run_script("record_run.py", "--project", str(project), "--official", "--", sys.executable, "code/solve.py")
+            self.assertNotEqual(done.returncode, 0)
+            self.assertIn("unresolved", done.stderr)
             findings, _ = check_project(project, "computation")
             self.assertIn("MODEL-E013", {item.rule_id for item in findings})
 
@@ -851,6 +861,7 @@ class CompileRecorderTests(unittest.TestCase):
                 "claims": [{"claim_id": "CLM-Q1-001"}],
                 "conclusion_check": {"decision": "accepted", "reviewer_kind": "human_user",
                     "reviewer": "fixture-user", "reviewed_at": "2026-09-07", "presented_claim_ids": ["CLM-Q1-001"]}})
+            write_accepted_snapshot(project, "validation", ["validation/CLAIM_LEDGER.json"])
             init = run_script("init_latex_paper.py", "--project", str(project), "--competition-year", "2026",
                               "--title", "候选集枚举下的最小成本", "--keywords", "枚举; 最小成本; 候选集")
             self.assertEqual(init.returncode, 0, init.stdout + init.stderr)

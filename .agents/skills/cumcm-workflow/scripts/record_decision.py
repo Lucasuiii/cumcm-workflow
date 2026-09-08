@@ -127,7 +127,9 @@ def main() -> int:
             presented = list(range(1, data.get("compile", {}).get("page_count", 0) + 1))
         if not presented:
             parser.error("no material to confirm; prepare and show it first")
-        data[key] = {"decision": "accepted", "reviewer": args.reviewer if args.reviewer != "agent" else "user",
+        if args.reviewer == "agent":
+            args.reviewer = "user"
+        data[key] = {"decision": "accepted", "reviewer": args.reviewer,
                      "reviewer_kind": "human_user", "reviewed_at": datetime.now(timezone.utc).isoformat(),
                      presented_key: presented, "notes": args.user_visible_summary}
         checkpoint_data = data
@@ -143,6 +145,12 @@ def main() -> int:
         checks = {"model-design": lambda: check_selection_check(data, rel),
                   "validation": lambda: check_conclusion_check(data, rel),
                   "delivery": lambda: check_final_check(data, rel, data.get("compile"))}
+        if args.stage == "model-design":
+            from workflow_checks import require_resolved_model
+            try:
+                require_resolved_model(data)
+            except ValueError as exc:
+                parser.error(str(exc))
         errors = checks[args.stage]()
         if errors:
             parser.error(errors[0].message + "; show the material, then use --confirm-human after the user's reply")

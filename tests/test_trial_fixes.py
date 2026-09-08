@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 from test_recorders import make_project, run_script, write_json, SCRIPTS
-from test_workflow_core import build_valid_project
+from test_workflow_core import build_valid_project, write_accepted_snapshot
 from workflow_checks import check_project, check_delivery, check_model_verification, require_human_checkpoint
 from delivery_archives import build_archives, check_archives
 from build_handoff import build as build_handoff
@@ -54,7 +54,7 @@ class HumanStops(unittest.TestCase):
             write_json(root, '.cumcm/state.json', state)
             model = json.loads((root / 'model/MODEL_CONTRACT.json').read_text())
             model['selection_check']['decision'] = 'unreviewed'
-            model['components'][0]['candidates'] = [{'candidate_id': 'CAND-ENUM'}]
+            model['components'][0]['candidates'] = [{'candidate_id': 'CAND-ENUM', 'status': 'selected'}]
             write_json(root, 'model/MODEL_CONTRACT.json', model)
             done = run_script('record_decision.py', '--project', str(root), '--stage', 'model-design',
                               '--decision', 'accepted', '--confirm-human', '--task-turn-ref', 'user-turn-2',
@@ -80,7 +80,7 @@ class HumanStops(unittest.TestCase):
             self.assertEqual(run_script('record_decision.py', *command).returncode, 0)
             path = root / 'model/MODEL_CONTRACT.json'
             model = json.loads(path.read_text()); model['components'][0]['scope'] += ' changed'
-            model['components'][0]['candidates'] = [{'candidate_id': 'CAND-ENUM'}]
+            model['components'][0]['candidates'] = [{'candidate_id': 'CAND-ENUM', 'status': 'selected'}]
             write_json(root, 'model/MODEL_CONTRACT.json', model)
             self.assertNotEqual(run_script('record_decision.py', *command).returncode, 0)
             reopened = run_script('record_decision.py', '--project', str(root), '--stage', 'model-design',
@@ -133,6 +133,7 @@ class HumanStops(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'explicit decision'):
                 build_handoff(root, 'validation-paper', 'reviewer-task')
             claims['conclusion_check']['reviewer_kind'] = 'human_user'; path.write_text(json.dumps(claims))
+            write_accepted_snapshot(root, 'validation', ['validation/CLAIM_LEDGER.json'])
             review = json.loads((root / 'validation/INDEPENDENT_REVIEW_RESULT.json').read_text())
             review['verdict'] = 'revision_required'
             write_json(root, 'validation/INDEPENDENT_REVIEW_RESULT.json', review)

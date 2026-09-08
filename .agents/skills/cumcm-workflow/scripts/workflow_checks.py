@@ -706,6 +706,22 @@ def check_selection_check(data: Any, path: str) -> list[Finding]:
     return findings
 
 
+def require_resolved_model(data: dict) -> None:
+    """Only the candidate decision must be complete before official computation.
+
+    Do not require future official runs or the full finalizing contract here.
+    """
+    components = data.get("components")
+    if not isinstance(components, list) or not components:
+        raise ValueError("model comparison is unresolved: no model components")
+    for component in components:
+        candidates = component.get("candidates", []) if isinstance(component, dict) else []
+        if (not isinstance(candidates, list) or not candidates
+                or any(not isinstance(c, dict) or c.get("status") not in {"selected", "rejected"} for c in candidates)
+                or sum(c.get("status") == "selected" for c in candidates) != 1):
+            raise ValueError("model comparison is unresolved: each component needs exactly one selected candidate and all others rejected")
+
+
 def require_human_checkpoint(root: Path, stage: str) -> None:
     """Action boundary, not a full finalizing check (which needs future runs).
 
@@ -728,10 +744,14 @@ def require_human_checkpoint(root: Path, stage: str) -> None:
     checks = {"model-design": lambda: check_selection_check(data, rel),
               "validation": lambda: check_conclusion_check(data, rel),
               "delivery": lambda: check_final_check(data, rel, data.get("compile"))}
+    if stage == "model-design":
+        require_resolved_model(data)
     errors = [item for item in checks[stage]() if item.severity == "error"]
     if errors:
         raise ValueError(errors[0].message)
     snapshot_path = root / ".cumcm" / "snapshots" / f"{stage}.json"
+    if not snapshot_path.is_file():
+        raise ValueError(f"{stage} has no approval snapshot; record the user's reply with record_decision.py --confirm-human")
     if snapshot_path.exists():
         snapshot, error = read_json(snapshot_path)
         records = snapshot.get("artifacts", []) if isinstance(snapshot, dict) else []

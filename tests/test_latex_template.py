@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from init_latex_paper import initialize  # noqa: E402
 from test_paper_pipeline import build_paper_ready_project  # noqa: E402
-from test_workflow_core import envelope, write_json  # noqa: E402
+from test_workflow_core import envelope, write_json, write_accepted_snapshot  # noqa: E402
 from workflow_checks import check_latex_template, check_project  # noqa: E402
 
 
@@ -104,6 +104,8 @@ def build_inputs(root: Path, problem_ids: tuple[str, ...] = ("Q1", "Q2"), plan_i
                              "reviewer": "fixture-user", "reviewed_at": "2026-09-07",
                              "presented_claim_ids": [f"CLM-{ident}" for ident in problem_ids]},
     })
+
+    write_accepted_snapshot(root, "validation", ["validation/CLAIM_LEDGER.json"])
 
 
 class LatexTemplateTests(unittest.TestCase):

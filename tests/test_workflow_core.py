@@ -49,6 +49,16 @@ def write_json(root: Path, rel: str, data: dict) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def write_accepted_snapshot(root: Path, stage: str, paths: list[str]) -> None:
+    """Synthetic accepted review; tests of the recorder itself use the real CLI."""
+    records = [{"path": rel, "sha256": digest((root / rel).read_bytes())} for rel in paths]
+    write_json(root, f".cumcm/snapshots/{stage}.json", {
+        "snapshot_version": "0.6.0", "stage": stage, "decision": "accepted",
+        "decision_id": f"FIXTURE-{stage}", "artifacts": records,
+        "snapshot_digest": digest_records(records),
+    })
+
+
 def build_valid_project(root: Path) -> None:
     source_bytes = b"synthetic problem statement"
     source_path = root / "problem" / "official" / "problem.txt"
@@ -452,6 +462,8 @@ def build_valid_project(root: Path) -> None:
         }
     )
     write_json(root, "delivery/DELIVERY_MANIFEST.json", delivery)
+    write_accepted_snapshot(root, "model-design", ["model/MODEL_CONTRACT.json"])
+    write_accepted_snapshot(root, "validation", ["validation/CLAIM_LEDGER.json"])
 
 class WorkflowCoreTests(unittest.TestCase):
     def run_check(self, root: Path):
