@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,14 +47,27 @@ class EntryPointTests(unittest.TestCase):
             self.assertIn(field, claude, "Claude Code requires name and description in the frontmatter")
         self.assertGreater(len(claude["description"]), 40)
 
-    def test_claude_router_points_at_the_canonical_tree_and_real_scripts(self):
+    def test_claude_router_link_resolves_from_its_own_directory(self):
         text = CLAUDE_SKILL.read_text(encoding="utf-8")
-        self.assertIn(".agents/skills/cumcm-workflow/SKILL.md", text)
-        referenced = set(re.findall(r"\$S/([a-z_]+\.py)", text)) | set(re.findall(r"scripts/([a-z_]+\.py)", text))
-        self.assertTrue(referenced)
-        for name in sorted(referenced):
-            with self.subTest(script=name):
-                self.assertTrue((SCRIPTS / name).is_file(), f"router names a script that does not exist: {name}")
+        links = re.findall(r"\]\(([^)]+)\)", text)
+        self.assertEqual(len(links), 1)
+        self.assertEqual((CLAUDE_SKILL.parent / links[0]).resolve(), CANONICAL / "SKILL.md")
+        self.assertEqual(frontmatter(CLAUDE_SKILL), frontmatter(CANONICAL / "SKILL.md"))
+
+    def test_complete_personal_skill_can_run_from_an_unrelated_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installed = root / 'personal skills/cumcm-workflow'
+            shutil.copytree(CANONICAL, installed, ignore=shutil.ignore_patterns('__pycache__'))
+            workspace = root / 'contest'; workspace.mkdir()
+            done = subprocess.run([sys.executable, str(installed / 'scripts/init_project.py'), '--help'],
+                                  cwd=workspace, capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            for name in ('references', 'schemas', 'assets'):
+                self.assertTrue((installed / name).is_dir())
+            linked = root / 'linked-skill'
+            linked.symlink_to(CANONICAL, target_is_directory=True)
+            self.assertEqual((linked / 'SKILL.md').resolve(), CANONICAL / 'SKILL.md')
 
     def test_both_repo_editing_entry_points_lead_to_one_rule_set(self):
         """The repository is maintained from Codex and from Claude Code.

@@ -367,9 +367,18 @@ Verdict：`accepted` / `accepted_with_concerns` / `revision_required` / `inconcl
 唯一 canonical 树是 `.agents/skills/cumcm-workflow/`（SKILL.md、references、schemas、scripts、assets）。
 
 - **Codex**：仓库内 `.agents/skills/` 自动可见，`agents/openai.yaml` 提供展示名和默认提示词。用 `$cumcm-workflow` 触发。
-- **Claude Code**：`.claude/skills/cumcm-workflow/SKILL.md` 是指向 canonical 树的**薄路由**——它不复述任何规则，因此两个入口不会漂移；根目录 `CLAUDE.md` 是改这个仓库时的工程约定，`AGENTS.md` 是给 Codex 的同名入口，只做路由、不复述规则——两边维护同一套不变式。在仓库里直接说"用 cumcm-workflow 初始化…"即可，也可以把 `.claude/skills/cumcm-workflow/` 复制到 `~/.claude/skills/`。
+- **Claude Code**：仓库内用 `/cumcm-workflow` 或明确要求“使用 cumcm-workflow”。`.claude/skills/cumcm-workflow/SKILL.md` 只链接到正式 Skill，链接相对于路由文件定位，不依赖当前工作目录。根目录 `CLAUDE.md` 明确区分“解题”和“维护仓库”；工程规则仅适用于后者。
 
-两边执行同一套脚本，脚本用 `Path(__file__)` 定位 schema 和 assets，与工作目录无关。`tests/test_entry_points.py` 锁住这一点：路由提到的每个脚本必须真实存在，两个入口的 frontmatter 必须一致。
+在任意目录使用 Claude 个人 Skill，并随仓库更新保持同步：从仓库根目录运行下列命令，将**完整 canonical 目录**链接到个人 Skill 目录。目标已存在时先检查现有安装，不要覆盖。
+
+```bash
+mkdir -p ~/.claude/skills
+ln -s "$PWD/.agents/skills/cumcm-workflow" ~/.claude/skills/cumcm-workflow
+```
+
+保留仓库位置，移动后需要重建链接。若希望脱离仓库使用，可复制完整 `.agents/skills/cumcm-workflow/`；副本不会自动同步，升级时需要重新同步整个目录。不要只复制 `.claude/` 中的路由。
+
+两端读取同一套阶段规则。脚本路径从实际 Skill 目录取得绝对路径；脚本通过 `Path(__file__)` 定位 schema 和 assets。入口测试验证路由链接、完整 Skill 在异地目录的脚本启动及元数据一致性。
 
 ---
 

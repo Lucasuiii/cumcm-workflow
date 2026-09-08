@@ -184,9 +184,18 @@ python3 $S/plan_redo.py --project /path/to/project --changed code/solve.py
 The single canonical tree is `.agents/skills/cumcm-workflow/`.
 
 - **Codex** picks up `.agents/skills/` inside the repository; `agents/openai.yaml` supplies the display name and default prompt. Trigger with `$cumcm-workflow`.
-- **Claude Code** reads `.claude/skills/cumcm-workflow/SKILL.md`, a thin router into the canonical tree — it restates no rules, so the two cannot drift. `CLAUDE.md` at the root carries the engineering conventions, and `AGENTS.md` is the same entry point under the name Codex looks for — a router that restates no rules, so the repository is maintained from either side against one set of invariants. Copy `.claude/skills/cumcm-workflow/` into `~/.claude/skills/` to use it as a personal skill.
+- **Claude Code**: use `/cumcm-workflow` or explicitly request the workflow inside the checkout. `.claude/skills/cumcm-workflow/SKILL.md` only links to the canonical Skill, relative to the router file rather than the working directory. Root `CLAUDE.md` distinguishes contest work from repository maintenance; engineering rules apply only to maintenance.
 
-Both run the same scripts, which locate schemas and assets through `Path(__file__)` and do not care about the working directory.
+For a personal Claude Skill usable from any directory and kept in sync with the checkout, run this from the repository root to link the **complete canonical directory**. If the destination exists, inspect that installation first; do not overwrite it.
+
+```bash
+mkdir -p ~/.claude/skills
+ln -s "$PWD/.agents/skills/cumcm-workflow" ~/.claude/skills/cumcm-workflow
+```
+
+Keep the checkout in place; rebuild the link if it moves. For a standalone installation, copy the complete `.agents/skills/cumcm-workflow/` directory instead. Copies do not update automatically: resync the complete directory when upgrading. Do not copy only the `.claude/` router.
+
+Both agents read the same stage rules. Resolve absolute script paths from the actual Skill directory; scripts locate schemas and assets through `Path(__file__)`. Entry tests verify the router link, script startup from a relocated complete Skill, and matching metadata.
 
 ## 11. Development
 

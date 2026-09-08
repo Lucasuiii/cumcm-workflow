@@ -1,6 +1,11 @@
 # CLAUDE.md
 
-Engineering notes for working **on** this repository. To *use* the workflow on a contest problem, invoke the `cumcm-workflow` skill (`.claude/skills/cumcm-workflow/SKILL.md`) and follow `.agents/skills/cumcm-workflow/SKILL.md`.
+Choose the entry point from the user's task:
+
+- **Solve or resume a contest problem:** read [.agents/skills/cumcm-workflow/SKILL.md](.agents/skills/cumcm-workflow/SKILL.md) and follow it. The engineering instructions below do not apply to solving the contest problem. Resolve this link from the directory containing this file, not the contest workspace.
+- **Edit this workflow repository:** follow the engineering instructions below. Do not start a contest run unless requested.
+
+The Claude Code Skill at `.claude/skills/cumcm-workflow/SKILL.md` routes to the same canonical workflow.
 
 ## Layout
 
