@@ -188,12 +188,14 @@ v0.6 没有 profile。只有：
 
 阶段状态只有四个：`not_started` / `in_progress` / `passed` / `needs_revision`。
 
+三个必需人工确认点是模型选择、写论文前的结论、最终交付。展示当前材料并收到明确回复后，用 `record_decision.py --decision accepted --confirm-human`，指定 `--stage`、`--task-turn-ref` 和 `--summary`；命令自动填入现有确认字段并推进状态。技术阶段检查通过后省略 `--confirm-human`。模型自审不算人工确认，记录仍依赖如实引用用户回复。
+
 ---
 
 ## 6. 一次完整走查
 
 ```bash
-S=.agents/skills/cumcm-workflow/scripts
+S="$PWD/.agents/skills/cumcm-workflow/scripts"  # 在仓库根目录设置
 ```
 
 **① 初始化**（对话里直接说"用 cumcm-workflow 从 /path/to/2026B 初始化"即可，agent 会替你跑）
@@ -260,10 +262,11 @@ python3 $S/paper_visible_text_check.py --project <p> --pdf paper/main.pdf
 
 `record_compile.py` 会把每一页渲染到 `.cumcm/tmp/pages/`——**然后真的去看那些图**。
 
-**⑨ 交付**：
+**⑨ 交付**：按项目目录打包，验包检查已声明文件的缺失和过期；不代替解压后的运行检验。刷新不改官方来源，无变化不重写清单。
 
 ```bash
 python3 $S/build_handoff.py --project <p> --transition paper-delivery
+python3 $S/refresh_evidence.py --project <p> --only delivery --package
 python3 $S/cumcm_check.py --project <p> --stage delivery --gate-mode enforce
 ```
 
@@ -279,7 +282,7 @@ python3 $S/record_decision.py --project <p> --stage model-design \
   --reviewer <name> --task-turn-ref <ref> --summary "Q2 模型不符合观测区间"
 ```
 
-它把该阶段及全部下游置为 `needs_revision`、删掉下游 snapshot、把 `current_stage` 移回去。下游处于 `needs_revision` 是重开后的**正常状态**，不是错误。
+它把该阶段及全部下游置为 `needs_revision`、删掉下游 snapshot、使相关人工确认失效，并把 `current_stage` 移回去。下游处于 `needs_revision` 是重开后的**正常状态**，不是错误。
 
 改完之后先问"到底要重做什么"：
 
@@ -310,7 +313,7 @@ not affected (do not redo):
 
 ## 8. 独立复核
 
-第一次 review 是 full 且上下文分离的。复核包只复制正式结果对应的 canonical evidence，并声明 `context_excluded`——打包器**实际排除**了 originating task transcript、debug history、failed runs、prior review prose。它不声称"reviewer 心里没有结论"，因为那不可验证。
+审查从当前题目的风险出发，检查任务覆盖、模型与求解有效性、验证辨别力和结论范围；按问题选择检验，不套用固定实验清单。第一次 review 是 full 且上下文分离的。复核包只复制正式结果对应的 canonical evidence，并声明 `context_excluded`——打包器**实际排除**了 originating task transcript、debug history、failed runs、prior review prose。它不声称"reviewer 心里没有结论"，因为那不可验证。
 
 结果模板的四个独立性字段初值是 `null`，必须由 reviewer 或用户正面声明；留 null 直接失败（`IREVIEW-E027`）。两个 task ref 必须不同，但这只是防复制粘贴的护栏，**不是独立性证明**。
 
@@ -417,18 +420,3 @@ CI 在 Python 3.10 与 3.13 上跑契约测试；另有一个装了 texlive 的 
 完整列表见 [已知限制](docs/limitations.md)。
 
 [MIT License](LICENSE)
-
-### 试跑反馈修正
-
-只保留三个必须停下等待用户的节点：模型选择、写论文前的结论、最终交付。展示当前材料并收到明确回复后，运行：
-
-```bash
-python3 "$S/record_decision.py" --project <p> --stage <model-design|validation|delivery> \
-  --decision accepted --confirm-human --task-turn-ref <用户回复引用> --summary <确认内容>
-```
-
-命令自动填入现有确认字段、生成已有快照并推进状态；技术阶段通过检查后使用同一命令但省略 `--confirm-human`。重开阶段会使下游确认失效。模型自审不能代替人工确认；本地记录仍依赖 agent 如实引用用户回复，并不认证回复来源。没有新增 schema 或哈希链。
-
-入口 Skill 改为按当前阶段读取。运行目录原子分配，避免并发覆盖；并发任务仍须使用各自的输出路径。证据刷新不再重写官方来源，无变化不落盘；交付用 `refresh_evidence.py --only delivery --package` 按原目录打包，并检查 ZIP 实际文件是否缺失或过期。自动验包覆盖已声明依赖，不能代替解压后的运行检验。
-
-审查从当前题目的主要风险出发，检查任务覆盖、关键假设、求解有效性、验证辨别力和结论范围。数学性质与检验方法按问题选择，不强制通用实验清单，也不以旧失败样例通过代替一般修复。有效证明与有限实验分别按其实际支撑能力判断。

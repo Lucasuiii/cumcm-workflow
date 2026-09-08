@@ -77,12 +77,14 @@ v0.6 deleted the `strict`/`sprint` profile. `mode` (in state) decides what must 
 
 Stage statuses: `not_started`, `in_progress`, `passed`, `needs_revision`.
 
+The three required human stops are model selection, conclusions before paper writing, and final delivery. After showing current material and receiving an explicit reply, use `record_decision.py --decision accepted --confirm-human` with `--stage`, `--task-turn-ref` and `--summary`; it fills existing checkpoint fields and advances state. Technical stages omit `--confirm-human` after passing checks. Model self-review is not human acceptance; records depend on truthful references to user replies. `preflight` reports pending review without blocking exploration; `enforce` requires acceptance in both modes, as do the corresponding official-run and paper entry points.
+
 Findings are graded by consequence: hard invariant / `P0` blocks; `P1` (assumptions, baselines, sensitivity — and **everything about exploratory runs**) stays visible; `P2` never enters the gate.
 
 ## 4. Recording computation
 
 ```bash
-S=.agents/skills/cumcm-workflow/scripts
+S="$PWD/.agents/skills/cumcm-workflow/scripts"  # set from the repository root
 
 # exploration costs nothing to record
 python3 $S/record_run.py --project <p> -- python3 code/try.py
@@ -127,7 +129,7 @@ python3 $S/record_decision.py --project <p> --stage model-design \
   --task-turn-ref <ref> --summary "the Q2 model does not fit the observed regime"
 ```
 
-Then ask what the change actually costs:
+Reopening invalidates the affected human checkpoints and downstream snapshots, and moves stage state back. Then ask what the change actually costs:
 
 ```bash
 python3 $S/plan_redo.py --project <p> --changed code/solve_q2.py
@@ -137,7 +139,7 @@ python3 $S/plan_redo.py --project <p> --changed code/solve_q2.py
 
 ## 6. Independent validation
 
-The first review is full and context-separated. The package copies only canonical evidence for formally indexed results and declares `context_excluded` — the originating task transcript, debug history, failed runs and prior review prose it physically left out. It does not claim the reviewer holds no conclusions.
+Review the current task’s risks: task coverage, model and solution validity, discriminating evidence and claim scope. Choose checks appropriate to the problem, not a fixed experiment checklist. The first review is full and context-separated. The package copies only canonical evidence for formally indexed results and declares `context_excluded` — the originating task transcript, debug history, failed runs and prior review prose it physically left out. It does not claim the reviewer holds no conclusions.
 
 The result template ships with every independence field `null`; the reviewer or the user must assert them, and a null fails. Differing originating/reviewer task references are a paste guard, not proof.
 
@@ -161,6 +163,8 @@ python3 $S/record_compile.py --project <p> --update-quality
 ```
 
 Compiles, hashes the PDF, reads the page count, rasterises every page into `.cumcm/tmp/pages/`, derives layout checks from the engine log, and refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_report`. Those pages are what the final check has to present — then actually look at them.
+
+For delivery, run `refresh_evidence.py --project <p> --only delivery --package`. ZIPs preserve project-relative paths and are checked for missing or stale declared files; this does not replace execution after extraction. Refresh never rewrites official sources or unchanged manifests.
 
 v0.6 deleted `PAPER_TRACEABILITY.json` (the property it promised is measured directly on the PDF) and the eight-dimension self-attested quality matrix.
 
@@ -212,18 +216,3 @@ CI runs the contract tests on Python 3.10 and 3.13. `tests/test_recorders.py` ex
 Fresh context reduces contamination but cannot prove a reviewer is independent or correct. Digests prove artifact identity, not mathematical validity. A frozen model contract can degrade into a description of whatever the code does; the machine can only check that the verification plan maps to recorded assertions, and that the selected candidate cites runs that evaluated it. Log-derived layout checks cannot see that a label inside a figure is too small. See [known limitations](docs/limitations.md).
 
 [MIT License](LICENSE).
-
-### Trial-driven fixes
-
-Three human stops remain: model selection, conclusions before paper writing, and final delivery. After presenting all current material and receiving an explicit reply:
-
-```bash
-python3 "$S/record_decision.py" --project <p> --stage <model-design|validation|delivery> \
-  --decision accepted --confirm-human --task-turn-ref <user-reply-ref> --summary <accepted-material>
-```
-
-The command fills existing checkpoint fields, records the existing snapshot and advances state. Technical stages use the same command without `--confirm-human` after passing checks. Reopening invalidates downstream acceptance. `preflight` reports pending review without blocking exploration; `enforce`, official execution and paper entry require the relevant human acceptance in both modes. Local records rely on truthful references to user replies; they do not authenticate a person. No new schema or hash chain is introduced.
-
-Read only the active stage guide. Run directories are reserved atomically; concurrent jobs still need separate output paths. Evidence refresh never rewrites official sources or unchanged manifests. `refresh_evidence.py --only delivery --package` preserves directories and checks actual ZIP members for missing or stale files. It covers declared dependencies, not arbitrary imports or successful execution after extraction.
-
-Review priorities come from the current problem: task coverage, assumptions, solution validity, discriminating evidence and claim scope. Choose applicable mathematical properties and checks; no universal experiment checklist is required. Passing an old failing example alone does not establish a general repair. Judge proofs and finite experiments by what each actually supports.
