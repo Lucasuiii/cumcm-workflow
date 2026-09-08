@@ -12,6 +12,14 @@
 
 准备好 **Codex 或 Claude Code**、**Python 3.10+**，以及包含官方题目和附件的本地文件夹。
 
+启动环境与路径：
+
+- **macOS / MacBook**：在终端（zsh/bash）中执行下方命令。资料路径示例：`/Users/你的名字/Documents/赛题资料`。
+- **Windows（推荐 WSL2）**：在 WSL2 的 Linux 终端中克隆仓库并运行 agent 与工作流工具。Windows 的 `C:\Users\你的名字\Documents\赛题资料` 在 WSL 中通常对应 `/mnt/c/Users/你的名字/Documents/赛题资料`；新项目路径可用 `/home/你的WSL用户名/cumcm-projects/2026B`。Python、所选计算后端和 XeLaTeX 须在实际执行环境中可用，不能假定 Windows 上的安装会被 WSL 自动识别。
+- **Windows 原生 PowerShell**：文中的 Bash 示例（尤其 `$S`、`$PWD`、`ln -s`）需要改写，不能直接照抄。当前 CI 在 Linux 上运行，尚未完整验证 Windows 原生环境；WSL2 是推荐路径，并非已完成 Windows 端到端验证的声明。
+
+提示词里的资料路径与输出路径必须使用 **agent 实际运行环境**的路径格式，不要混用 Windows 与 WSL 路径。
+
 1. 下载仓库：
 
    ```bash

@@ -10,6 +10,14 @@ A contest-native, evidence-focused, low-friction agent workflow for the China Un
 
 Have **Codex or Claude Code**, **Python 3.10+**, and a local folder containing the official problem statement and attachments ready.
 
+Choose your environment and path format:
+
+- **macOS / MacBook**: run the commands below in Terminal (zsh/bash). Example materials path: `/Users/yourname/Documents/official-materials`.
+- **Windows (WSL2 recommended)**: clone the repository and run the agent and workflow tools in the WSL2 Linux environment. Windows `C:\Users\yourname\Documents\official-materials` typically maps to `/mnt/c/Users/yourname/Documents/official-materials`; a new project can use `/home/your-wsl-username/cumcm-projects/2026B`. Python, the selected computation backend and XeLaTeX must be available in the execution environment; do not assume WSL automatically detects Windows installations.
+- **Native Windows PowerShell**: Bash examples, especially `$S`, `$PWD` and `ln -s`, require adaptation. CI currently runs on Linux; native Windows has not been fully validated. WSL2 is a recommended route, not a claim of completed Windows end-to-end testing.
+
+Use paths as seen by the **agent's execution environment** in your prompt; do not mix Windows and WSL path formats.
+
 1. Clone the repository:
 
    ```bash
