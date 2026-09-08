@@ -193,7 +193,7 @@ def freeze_input(root: Path, run_dir: Path, rel: str) -> tuple[str, bool]:
 
 def child_run_id(root: Path, parent: str) -> str:
     """RUN-Q1-001 -> RUN-Q1-002, keeping whatever prefix the parent used."""
-    existing = {path.parent.name for path in (root / "runs").glob("*/RUN_MANIFEST.json")}
+    existing = {path.name for path in (root / "runs").iterdir()}
     match = re.match(r"^(.*?)(\d+)$", parent)
     if match:
         head, number = match.group(1), int(match.group(2))
@@ -226,7 +226,7 @@ def load_previous(root: Path, run_id: str) -> dict[str, Any]:
 
 
 def next_run_id(root: Path) -> str:
-    existing = {path.parent.name for path in (root / "runs").glob("*/RUN_MANIFEST.json")} if (root / "runs").is_dir() else set()
+    existing = {path.name for path in (root / "runs").iterdir()} if (root / "runs").is_dir() else set()
     index = 1
     while f"RUN-{index:03d}" in existing:
         index += 1
@@ -297,10 +297,26 @@ def main() -> int:
     if entry_point not in sources:
         sources.append(entry_point)
 
-    run_dir = root / "runs" / run_id
-    if (run_dir / "RUN_MANIFEST.json").is_file():
-        parser.error(f"run {run_id} already exists; runs are append-only, use --rerun {run_id}")
-    run_dir.mkdir(parents=True, exist_ok=True)
+    if args.official:
+        from workflow_checks import require_human_checkpoint
+        try:
+            require_human_checkpoint(root, "model-design")
+        except ValueError as exc:
+            parser.error(str(exc))
+    # Reserve the directory before launching a process, including unfinished runs.
+    # mkdir is atomic; simultaneous automatic allocations retry rather than overwrite.
+    (root / "runs").mkdir(exist_ok=True)
+    while True:
+        if not run_id or Path(run_id).name != run_id or run_id in {".", ".."}:
+            parser.error("run id must be a single directory name")
+        run_dir = root / "runs" / run_id
+        try:
+            run_dir.mkdir()
+            break
+        except FileExistsError:
+            if args.run_id:
+                parser.error(f"run {run_id} already exists or is in progress; runs are append-only")
+            run_id = child_run_id(root, args.rerun) if args.rerun else next_run_id(root)
     stdout_path = run_dir / "stdout.log"
     stderr_path = run_dir / "stderr.log"
 

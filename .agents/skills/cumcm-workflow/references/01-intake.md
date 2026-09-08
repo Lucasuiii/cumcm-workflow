@@ -14,7 +14,7 @@ Create a read-only inventory of the official problem, attachments, and current c
 3. Render PDFs when formulas, tables, or layout carry meaning. Use extracted text only for navigation.
 4. Working mode may continue to problem decomposition while the source set is being confirmed. Before `finalizing`, set `intake: passed` only after every expected official attachment and current competition rule file is accounted for and the artifact-bound decision/snapshot is recorded.
 
-Run `cumcm_check.py --stage intake --gate-mode preflight`, obtain the human decision, record it, then run `--gate-mode enforce`. Passing proves source identity and the declared inventory, not that the expected-source list is complete; a human must confirm that list.
+Run `cumcm_check.py --stage intake --gate-mode preflight`, resolve errors, and record the technical completion. Passing proves source identity and the declared inventory, not that the expected-source list is complete. Ask the user only if the supplied files leave a material ambiguity; intake is not an additional mandatory approval stop.
 
 Let the inventory and validator record and compare SHA-256 automatically for official statements and organizer attachments. The reviewer confirms the source list and origin, not the digest characters. An official-source hash mismatch blocks intake; external references and team-created materials may omit hashes, and stale optional hashes are warnings. A byte-size mismatch is only stale metadata and should be refreshed.
 

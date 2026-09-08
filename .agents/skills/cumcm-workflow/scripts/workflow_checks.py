@@ -689,10 +689,10 @@ def check_selection_check(data: Any, path: str) -> list[Finding]:
                 candidate_id = item_id(candidate, "candidate_id")
                 if candidate_id:
                     declared.append(candidate_id)
-    if not declared:
+    if not declared and not data.get("selection_check"):
         return findings
     check = data.get("selection_check")
-    if not isinstance(check, dict) or check.get("decision") != "accepted":
+    if not isinstance(check, dict) or check.get("decision") != "accepted" or check.get("reviewer_kind") != "human_user":
         findings.append(finding("MODEL-E016", "error", "semantic", "model-design", path, "the model choice must be confirmed before it is computed against", gate_only=True))
         return findings
     if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
@@ -704,6 +704,45 @@ def check_selection_check(data: Any, path: str) -> list[Finding]:
     if check.get("reviewer_kind") == "human_user" and not presented:
         findings.append(finding("MODEL-E019", "error", "semantic", "model-design", path, "a selection check attributed to a person must record the candidates presented to them"))
     return findings
+
+
+def require_human_checkpoint(root: Path, stage: str) -> None:
+    """Action boundary, not a full finalizing check (which needs future runs).
+
+    Reuse the existing contract and snapshot; no new receipt or hash layer.
+    These are honest records of a conversation, not authentication of a human.
+    """
+    names = {"model-design": ("model", "selection_check"),
+             "validation": ("claims", "conclusion_check"),
+             "delivery": ("delivery", "final_check")}
+    name, field = names[stage]
+    rel = CONTRACT_PATHS[name]
+    data, error = read_json(root / rel)
+    if error or not isinstance(data, dict):
+        raise ValueError(f"show the {stage} material and wait for the user; missing {rel}")
+    check = data.get(field)
+    if not isinstance(check, dict):
+        raise ValueError(f"{stage} awaits the user; no checkpoint recorded")
+    if check.get("decision") != "accepted" or check.get("reviewer_kind") != "human_user":
+        raise ValueError(f"{stage} awaits the user's explicit decision; model self-review cannot approve it")
+    checks = {"model-design": lambda: check_selection_check(data, rel),
+              "validation": lambda: check_conclusion_check(data, rel),
+              "delivery": lambda: check_final_check(data, rel, data.get("compile"))}
+    errors = [item for item in checks[stage]() if item.severity == "error"]
+    if errors:
+        raise ValueError(errors[0].message)
+    snapshot_path = root / ".cumcm" / "snapshots" / f"{stage}.json"
+    if snapshot_path.exists():
+        snapshot, error = read_json(snapshot_path)
+        records = snapshot.get("artifacts", []) if isinstance(snapshot, dict) else []
+        record = next((item for item in records if item.get("path") == rel), None)
+        if error or not record or any(
+            not isinstance(item, dict)
+            or (target := safe_project_path(root, item.get("path"))) is None
+            or not target.is_file() or item.get("sha256") != sha256(target)
+            for item in records
+        ):
+            raise ValueError(f"{stage} material changed after approval; show the revision and obtain a new decision")
 
 
 def check_model_candidates(
@@ -798,7 +837,8 @@ def check_model_verification(
         if not isinstance(component, dict):
             continue
         ident = item_id(component, "model_id")
-        plan = [str(entry) for entry in as_list(component.get("verification_plan"))]
+        plan = [str(entry.get("assertion_name", "")) if isinstance(entry, dict) else str(entry)
+                for entry in as_list(component.get("verification_plan"))]
         recorded: set[str] = set()
         for capability_id in as_list(component.get("capability_ids")):
             recorded |= capability_assertions.get(str(capability_id), set())
@@ -1295,7 +1335,7 @@ def check_conclusion_check(data: dict[str, Any], path: str) -> list[Finding]:
     """
     findings: list[Finding] = []
     check = data.get("conclusion_check")
-    if not isinstance(check, dict) or check.get("decision") != "accepted":
+    if not isinstance(check, dict) or check.get("decision") != "accepted" or check.get("reviewer_kind") != "human_user":
         findings.append(finding("CLAIM-E021", "error", "semantic", "validation", path, "the conclusions must be confirmed before the paper is written", gate_only=True))
         return findings
     if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
@@ -1470,6 +1510,11 @@ def check_delivery(data: Any, root: Path, path: str) -> list[Finding]:
     if unresolved:
         findings.append(finding("DELIVERY-E010", "error", "semantic", "delivery", path, "delivery contains unresolved errors"))
     findings.extend(check_final_check(data, path, compile_record))
+    from delivery_archives import check_archives
+    state, _ = read_json(root / ".cumcm/state.json")
+    severity = "warning" if isinstance(state, dict) and state.get("mode") == "working" else "error"
+    findings.extend(finding("DELIVERY-E021", severity, "structural", "delivery", path, problem)
+                    for problem in check_archives(root, data))
     return findings
 
 
@@ -1483,7 +1528,7 @@ def check_final_check(data: dict[str, Any], path: str, compile_record: Any) -> l
     """
     findings: list[Finding] = []
     check = data.get("final_check")
-    if not isinstance(check, dict) or check.get("decision") != "accepted":
+    if not isinstance(check, dict) or check.get("decision") != "accepted" or check.get("reviewer_kind") != "human_user":
         findings.append(finding("DELIVERY-E011", "error", "semantic", "delivery", path, "the final check before submission must be accepted", gate_only=True))
         return findings
     if not nonempty(check.get("reviewer")) or not nonempty(check.get("reviewed_at")):
@@ -2426,11 +2471,11 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
 
     pending_review_count = sum(item.severity == "error" and item.gate_only for item in findings)
     automated_error_count = sum(item.severity == "error" and not item.gate_only for item in findings)
-    formal_gate_required = frozen and gate_mode == "enforce"
+    formal_gate_required = gate_mode == "enforce"
     blocking_error_count = automated_error_count + (pending_review_count if formal_gate_required else 0)
     if automated_error_count:
         gate_status = "blocked"
-    elif pending_review_count and frozen:
+    elif pending_review_count:
         gate_status = "awaiting_review"
     else:
         gate_status = "working_ready" if not frozen else "passed"

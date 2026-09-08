@@ -203,3 +203,18 @@ CI runs the contract tests on Python 3.10 and 3.13. `tests/test_recorders.py` ex
 Fresh context reduces contamination but cannot prove a reviewer is independent or correct. Digests prove artifact identity, not mathematical validity. A frozen model contract can degrade into a description of whatever the code does; the machine can only check that the verification plan maps to recorded assertions, and that the selected candidate cites runs that evaluated it. Log-derived layout checks cannot see that a label inside a figure is too small. See [known limitations](docs/limitations.md).
 
 [MIT License](LICENSE).
+
+### Trial-driven fixes
+
+Three human stops remain: model selection, conclusions before paper writing, and final delivery. After presenting all current material and receiving an explicit reply:
+
+```bash
+python3 "$S/record_decision.py" --project <p> --stage <model-design|validation|delivery> \
+  --decision accepted --confirm-human --task-turn-ref <user-reply-ref> --summary <accepted-material>
+```
+
+The command fills existing checkpoint fields, records the existing snapshot and advances state. Technical stages use the same command without `--confirm-human` after passing checks. Reopening invalidates downstream acceptance. `preflight` reports pending review without blocking exploration; `enforce`, official execution and paper entry require the relevant human acceptance in both modes. Local records rely on truthful references to user replies; they do not authenticate a person. No new schema or hash chain is introduced.
+
+Read only the active stage guide. Run directories are reserved atomically; concurrent jobs still need separate output paths. Evidence refresh never rewrites official sources or unchanged manifests. `refresh_evidence.py --only delivery --package` preserves directories and checks actual ZIP members for missing or stale files. It covers declared dependencies, not arbitrary imports or successful execution after extraction.
+
+Review priorities come from the current problem: task coverage, assumptions, solution validity, discriminating evidence and claim scope. Choose applicable mathematical properties and checks; no universal experiment checklist is required. Passing an old failing example alone does not establish a general repair. Judge proofs and finite experiments by what each actually supports.

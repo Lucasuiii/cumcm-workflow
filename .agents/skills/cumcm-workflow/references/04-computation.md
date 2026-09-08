@@ -22,22 +22,22 @@ The mathematical formulation, variable meanings, result IDs, and acceptance chec
 
 ```bash
 # exploration: no declarations at all
-python3 scripts/record_run.py --project <p> -- python3 code/try.py
+python3 "$S/record_run.py" --project <p> -- python3 code/try.py
 
 # formal: declare only what the tool cannot know
-python3 scripts/record_run.py --project <p> --official --capability CAP-Q1-001 \
+python3 "$S/record_run.py" --project <p> --official --capability CAP-Q1-001 \
   --source code/solve.py --input data/q1.csv:formal \
   --output results/q1.json:claim --assert-file results/assertions.json -- python3 code/solve.py
 
 # a rerun appends a successor (RUN-Q1-002) and leaves the parent untouched
-python3 scripts/record_run.py --project <p> --rerun RUN-Q1-001 --official
-python3 scripts/index_result.py --project <p> --follow-lineage
+python3 "$S/record_run.py" --project <p> --rerun RUN-Q1-001 --official
+python3 "$S/index_result.py" --project <p> --follow-lineage
 ```
 
 Then index the result; the value is read through the locator, so the index can never disagree with the output:
 
 ```bash
-python3 scripts/index_result.py --project <p> --result-id RES-Q1-001 --run RUN-Q1-001 \
+python3 "$S/index_result.py" --project <p> --result-id RES-Q1-001 --run RUN-Q1-001 \
   --locator results/q1.json#/minimum_cost --name "Minimum cost" --unit CNY \
   --scope "declared candidates only" --check "feasibility"
 ```
@@ -47,7 +47,7 @@ Exploratory runs are cheap on purpose: they are recorded, never trusted, and nev
 Their other job is settling the model comparison. Tag each evaluation with the candidate it is testing:
 
 ```bash
-python3 scripts/record_run.py --project <p> --candidate CAND-A -- python3 code/try_a.py
+python3 "$S/record_run.py" --project <p> --candidate CAND-A -- python3 code/try_a.py
 ```
 
 That run then counts as evidence for or against `CAND-A` in `MODEL_CONTRACT.components[].candidates`. Only after one candidate is `selected` does that model earn an official run; see [03-model-design.md](03-model-design.md).
@@ -73,7 +73,7 @@ A run may only use one backend per capability. That was a selector rule and a se
 Stochastic work records its seeds so the simulation can be reproduced:
 
 ```bash
-python3 scripts/record_run.py --project <p> --seed 20260907 --seed bootstrap=7 -- python3 code/mc.py
+python3 "$S/record_run.py" --project <p> --seed 20260907 --seed bootstrap=7 -- python3 code/mc.py
 ```
 
 Two things a run may never claim:

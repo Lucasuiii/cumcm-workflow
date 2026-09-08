@@ -98,6 +98,12 @@ def build_inputs(root: Path, problem_ids: tuple[str, ...] = ("Q1", "Q2"), plan_i
         }
     )
     write_json(root, "paper/PAPER_PLAN.json", plan)
+    write_json(root, "validation/CLAIM_LEDGER.json", {
+        "claims": [{"claim_id": f"CLM-{ident}"} for ident in problem_ids],
+        "conclusion_check": {"decision": "accepted", "reviewer_kind": "human_user",
+                             "reviewer": "fixture-user", "reviewed_at": "2026-09-07",
+                             "presented_claim_ids": [f"CLM-{ident}" for ident in problem_ids]},
+    })
 
 
 class LatexTemplateTests(unittest.TestCase):

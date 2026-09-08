@@ -166,6 +166,8 @@ def commit_staged_tree(staging: Path, paper_dir: Path) -> None:
 
 def initialize(project: Path, title: str, competition_year: int, keywords: str) -> Path:
     state, _, plan = validate_inputs(project)
+    from workflow_checks import require_human_checkpoint
+    require_human_checkpoint(project, "validation")
     skill_root = Path(__file__).resolve().parents[1]
     template_root = skill_root / "assets" / "latex-template" / "generic-ctex"
     template_meta = read_object(template_root / "template.json")

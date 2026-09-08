@@ -33,7 +33,7 @@ python3 -m compileall -q .agents/skills/cumcm-workflow/scripts tests
 
 `tests/test_recorders.py` runs real subprocesses and a real `xelatex` compile; it skips the CJK case when the `ctex` class is not installed. Every other test file works on synthetic fixtures.
 
-When you add a rule ID, add the test that makes it fire and the test that proves it does not fire in `working` mode.
+When you add a rule ID, test its failing and passing cases. Completeness checks warn in `working`; human checkpoints still block dependent actions and `enforce` in both modes. Test that `preflight` reports pending review without blocking exploration.
 
 Two habits, both learned from bugs the tests did not catch:
 

@@ -14,7 +14,7 @@ sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from backend_selection import detect_matlab_executable, select_backend
-from build_handoff import build as build_handoff
+from build_handoff import paper_payload, review_lineage, build as build_handoff
 from build_independent_review_package import build as build_review_package
 from init_latex_paper import commit_staged_tree
 from paper_visible_text_check import inspect_text
@@ -377,8 +377,7 @@ class ModesAndReviewTests(unittest.TestCase):
             review["findings"] = [review_finding("REV-P1-001", "P1", "accepted_concern")]
             write_json(root, "validation/INDEPENDENT_REVIEW_RESULT.json", review)
 
-            handoff_path = build_handoff(root, "validation-paper")
-            payload = json.loads(handoff_path.read_text(encoding="utf-8"))["payload"]
+            payload = paper_payload(root)
             limitation_text = json.dumps(payload["limitations"], ensure_ascii=False)
             self.assertNotIn(model_scope, limitation_text)
             self.assertIn("Only the observed time window is supported.", limitation_text)
@@ -435,13 +434,12 @@ class ModesAndReviewTests(unittest.TestCase):
             claims["claims"].append(contradicted)
             write_json(root, "validation/CLAIM_LEDGER.json", claims)
 
-            handoff_path = build_handoff(root, "validation-paper")
-            handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
-            limitation_text = json.dumps(handoff["payload"]["limitations"], ensure_ascii=False)
+            payload = paper_payload(root)
+            limitation_text = json.dumps(payload["limitations"], ensure_ascii=False)
             self.assertIn("REV-P1-KEEP", limitation_text)
             self.assertNotIn("REV-P1-DROP", limitation_text)
             self.assertNotIn("This must not enter the paper brief.", limitation_text)
-            self.assertIn(history.relative_to(root).as_posix(), {item["path"] for item in handoff["canonical_artifacts"]})
+            self.assertIn(history.relative_to(root).as_posix(), review_lineage(root, targeted)[1])
 
     def test_paper_delivery_handoff_is_self_contained_for_fresh_delivery(self):
         with tempfile.TemporaryDirectory() as temp:

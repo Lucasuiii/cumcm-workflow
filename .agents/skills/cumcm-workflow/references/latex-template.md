@@ -3,7 +3,7 @@
 Initialize after a claim-led `PAPER_PLAN.json` exists:
 
 ```bash
-python3 scripts/init_latex_paper.py --project <project> --competition-year <year> \
+python3 "$S/init_latex_paper.py" --project <project> --competition-year <year> \
   --title <title> --keywords '<actual object; model; method>'
 ```
 
@@ -39,7 +39,7 @@ For plotted figures, `assets/plot-style/cumcm.mplstyle` fixes sizes, fonts, grid
 The generic style uses restrained heading/equation/float spacing, booktabs-friendly tables, `tabularx`/`longtable`, and subfigure support. Do not shrink dense tables reflexively or force floats away from their argument. Compile with `record_compile.py`. It runs the declared engine, writes `COMPILE_RECEIPT.json` with the PDF hash and a `sha256-tree-v1` snapshot of every required source file, reads the page count out of the PDF, rasterises every page to `.cumcm/tmp/pages/`, and derives the layout checks (overfull boxes, undefined references, missing glyphs, font errors) from the engine log:
 
 ```bash
-python3 scripts/record_compile.py --project <p> --update-quality
+python3 "$S/record_compile.py" --project <p> --update-quality
 ```
 
 With `--update-quality` it refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_report` — page count, rendered pages, checks, bound artifact. The report carries no decision of its own; the single approval before submission is `DELIVERY_MANIFEST.final_check`, and the pages rendered here are what it must present. Then actually look at the rendered pages: equations, tables, captions, figure placement, page density, whitespace, fonts and cross-page continuity are human QA, not a machine score.

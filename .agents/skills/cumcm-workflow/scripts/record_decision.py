@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Append a file-version-bound human decision to .cumcm/decisions.jsonl.
 
-An `accepted` decision derives the stage snapshot. A `revision_requested` decision
+An `accepted` decision derives the stage snapshot and advances state. A `revision_requested` decision
 is the reopen primitive: it invalidates this stage and every downstream stage so
 that iteration never requires hand-editing .cumcm/state.json."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import tempfile
@@ -46,11 +47,24 @@ def write_json_atomic(path: Path, payload: dict) -> None:
     os.replace(temp_name, path)
 
 
+CHECKPOINT_PATHS = {"model-design": ("model/MODEL_CONTRACT.json", "selection_check"),
+                    "validation": ("validation/CLAIM_LEDGER.json", "conclusion_check"),
+                    "delivery": ("delivery/DELIVERY_MANIFEST.json", "final_check")}
+
+
 def reopen(root: Path, stage: str) -> None:
     """Invalidate this stage and everything downstream of it."""
     index = STAGES.index(stage)
     for later in STAGES[index:]:
         (root / ".cumcm" / "snapshots" / f"{later}.json").unlink(missing_ok=True)
+        if later in CHECKPOINT_PATHS:
+            rel, key = CHECKPOINT_PATHS[later]
+            path = root / rel
+            if path.is_file():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data.get(key), dict):
+                    data[key]["decision"] = "unreviewed"
+                    write_json_atomic(path, data)
     state_path = root / ".cumcm" / "state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
     stages = state.get("stages")
@@ -69,10 +83,11 @@ def main() -> int:
     parser.add_argument("--project", required=True, type=Path)
     parser.add_argument("--stage", required=True, choices=STAGES)
     parser.add_argument("--decision", required=True, choices=("accepted", "revision_requested"))
-    parser.add_argument("--decision-id", required=True)
-    parser.add_argument("--reviewer", required=True)
+    parser.add_argument("--decision-id", help="optional; otherwise allocated from the existing decision log")
+    parser.add_argument("--reviewer", default="agent")
     parser.add_argument("--task-turn-ref", required=True)
     parser.add_argument("--summary", required=True, dest="user_visible_summary")
+    parser.add_argument("--confirm-human", action="store_true", help="only after the user explicitly accepted ALL currently presented material; fills the existing checkpoint fields")
     parser.add_argument("--scope", action="append", default=[], help="project-relative file; repeat to override the stage defaults")
     args = parser.parse_args()
 
@@ -81,10 +96,61 @@ def main() -> int:
         parser.error(f"project is not a directory: {root}")
     log_path = root / ".cumcm" / "decisions.jsonl"
     events = load_events(log_path)
+    if not args.decision_id:
+        used = {event["decision_id"] for event in events}
+        number = len(events) + 1
+        while f"DEC-{number:03d}" in used:
+            number += 1
+        args.decision_id = f"DEC-{number:03d}"
     if args.decision_id in {event["decision_id"] for event in events}:
         parser.error(f"decision_id already exists: {args.decision_id}")
 
+    # Fill the existing checkpoint once; the agent need not copy ids or timestamps.
+    checkpoint_paths = CHECKPOINT_PATHS
+    checkpoint_data = None
+    checkpoint_path = None
+    if args.confirm_human:
+        if args.decision != "accepted" or args.stage not in checkpoint_paths:
+            parser.error("--confirm-human applies only to acceptance at the three human checkpoints")
+        rel, key = checkpoint_paths[args.stage]
+        checkpoint_path = root / rel
+        data = json.loads(checkpoint_path.read_bytes())
+        if args.stage == "model-design":
+            presented_key = "presented_candidate_ids"
+            presented = [c["candidate_id"] for component in data.get("components", [])
+                         for c in component.get("candidates", [])]
+        elif args.stage == "validation":
+            presented_key = "presented_claim_ids"
+            presented = [c["claim_id"] for c in data.get("claims", [])]
+        else:
+            presented_key = "presented_pages"
+            presented = list(range(1, data.get("compile", {}).get("page_count", 0) + 1))
+        if not presented:
+            parser.error("no material to confirm; prepare and show it first")
+        data[key] = {"decision": "accepted", "reviewer": args.reviewer if args.reviewer != "agent" else "user",
+                     "reviewer_kind": "human_user", "reviewed_at": datetime.now(timezone.utc).isoformat(),
+                     presented_key: presented, "notes": args.user_visible_summary}
+        checkpoint_data = data
+    if args.decision == "accepted" and args.stage in checkpoint_paths:
+        from workflow_checks import check_selection_check, check_conclusion_check, check_final_check, require_human_checkpoint
+        if not args.confirm_human:
+            try:
+                require_human_checkpoint(root, args.stage)
+            except ValueError as exc:
+                parser.error(str(exc))
+        rel, key = checkpoint_paths[args.stage]
+        data = checkpoint_data or json.loads((root / rel).read_text(encoding="utf-8"))
+        checks = {"model-design": lambda: check_selection_check(data, rel),
+                  "validation": lambda: check_conclusion_check(data, rel),
+                  "delivery": lambda: check_final_check(data, rel, data.get("compile"))}
+        errors = checks[args.stage]()
+        if errors:
+            parser.error(errors[0].message + "; show the material, then use --confirm-human after the user's reply")
+
     scope_paths = args.scope or stage_scope_paths(root, args.stage)
+    if args.decision == "accepted" and args.stage in checkpoint_paths:
+        rel, _ = checkpoint_paths[args.stage]
+        scope_paths = list(dict.fromkeys([*scope_paths, rel]))
     if ".cumcm/state.json" in scope_paths:
         parser.error("workflow state is mutable and must not be included in a decision scope")
     scope = []
@@ -92,7 +158,9 @@ def main() -> int:
         artifact = safe_project_path(root, rel)
         if artifact is None or not artifact.is_file():
             parser.error(f"scope file is missing or unsafe: {rel}")
-        scope.append({"path": rel, "sha256": sha256(artifact)})
+        digest = (hashlib.sha256((json.dumps(checkpoint_data, ensure_ascii=False, indent=2) + "\n").encode()).hexdigest()
+                  if checkpoint_data is not None and artifact == checkpoint_path else sha256(artifact))
+        scope.append({"path": rel, "sha256": digest})
 
     event = {
         "decision_id": args.decision_id,
@@ -104,6 +172,8 @@ def main() -> int:
         "user_visible_summary": args.user_visible_summary,
         "decided_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+    if checkpoint_data is not None:
+        write_json_atomic(checkpoint_path, checkpoint_data)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
@@ -120,6 +190,16 @@ def main() -> int:
             "snapshot_digest": digest_records(scope),
         }
         write_json_atomic(snapshot_path, snapshot)
+        state_path = root / ".cumcm" / "state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["stages"][args.stage] = "passed"
+        pending = [stage for stage in STAGES if state["stages"].get(stage) != "passed"]
+        next_stage = pending[0] if pending else STAGES[-1]
+        if state["stages"].get(next_stage) == "not_started":
+            state["stages"][next_stage] = "in_progress"
+        state["current_stage"] = next_stage
+        write_json_atomic(state_path, state)
+        print(f"{args.stage}: passed; next: {next_stage}")
     else:
         reopen(root, args.stage)
     print(f"recorded {args.decision_id} for {args.stage}; {len(scope)} artifact(s) bound")

@@ -183,7 +183,7 @@ v0.6 没有 profile。只有：
 | `mode`（存在 state 里） | `working` / `finalizing` | **什么必须完整** |
 | `--gate-mode` | `preflight` / `enforce` | **人工门禁是否计入阻断** |
 
-- `working`：草稿模型合同即可、`CROSS_QUESTION_LEDGER.json` 可选、阶段排序只是 warning。官方输入保护、真实执行、精确 locator、非伪造照样强制。`enforce` 在这里只报 `working_ready`，不是正式批准。
+- `working`：草稿模型合同即可、`CROSS_QUESTION_LEDGER.json` 可选、阶段排序只是 warning。官方输入保护、真实执行、精确 locator、非伪造照样强制。`preflight` 显示待审查而不阻断探索；`enforce` 在两种模式都要求人工确认。正式运行和论文入口也检查对应确认。
 - `finalizing`：完整模型合同（且 `verification_plan` 要对应到官方运行真的记录过的断言）、目标及上游阶段全部 `passed`、当前 accepted decision 与 snapshot、fresh handoff、独立复核、PDF QA、delivery 绑定。
 
 阶段状态只有四个：`not_started` / `in_progress` / `passed` / `needs_revision`。
@@ -408,3 +408,18 @@ CI 在 Python 3.10 与 3.13 上跑契约测试；另有一个装了 texlive 的 
 完整列表见 [已知限制](docs/limitations.md)。
 
 [MIT License](LICENSE)
+
+### 试跑反馈修正
+
+只保留三个必须停下等待用户的节点：模型选择、写论文前的结论、最终交付。展示当前材料并收到明确回复后，运行：
+
+```bash
+python3 "$S/record_decision.py" --project <p> --stage <model-design|validation|delivery> \
+  --decision accepted --confirm-human --task-turn-ref <用户回复引用> --summary <确认内容>
+```
+
+命令自动填入现有确认字段、生成已有快照并推进状态；技术阶段通过检查后使用同一命令但省略 `--confirm-human`。重开阶段会使下游确认失效。模型自审不能代替人工确认；本地记录仍依赖 agent 如实引用用户回复，并不认证回复来源。没有新增 schema 或哈希链。
+
+入口 Skill 改为按当前阶段读取。运行目录原子分配，避免并发覆盖；并发任务仍须使用各自的输出路径。证据刷新不再重写官方来源，无变化不落盘；交付用 `refresh_evidence.py --only delivery --package` 按原目录打包，并检查 ZIP 实际文件是否缺失或过期。自动验包覆盖已声明依赖，不能代替解压后的运行检验。
+
+审查从当前题目的主要风险出发，检查任务覆盖、关键假设、求解有效性、验证辨别力和结论范围。数学性质与检验方法按问题选择，不强制通用实验清单，也不以旧失败样例通过代替一般修复。有效证明与有限实验分别按其实际支撑能力判断。

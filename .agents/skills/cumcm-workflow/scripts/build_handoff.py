@@ -335,6 +335,15 @@ def build(root: Path, transition: str, task_ref: str | None = None) -> Path:
     state = read_object(root, ".cumcm/state.json")
     if state.get("workflow_version") != WORKFLOW_VERSION:
         raise ValueError(f"handoff builder requires workflow {WORKFLOW_VERSION}")
+    from workflow_checks import require_human_checkpoint, check_project
+    if transition == "modeling-computation":
+        require_human_checkpoint(root, "model-design")
+    elif transition == "validation-paper":
+        require_human_checkpoint(root, "validation")
+        findings, _ = check_project(root, "validation", "preflight")
+        errors = [item for item in findings if item.severity == "error" and not item.gate_only]
+        if errors:
+            raise ValueError(f"validation is blocked: {errors[0].rule_id}: {errors[0].message}")
     records: list[dict[str, str]] = []
     for rel, role in BASE_PATHS[transition]:
         add_artifact(root, records, rel, role)

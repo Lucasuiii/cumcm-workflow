@@ -3,7 +3,7 @@
 Handoffs are the durable interface for fresh-context work. Build them with:
 
 ```bash
-python3 scripts/build_handoff.py --project <project> --transition <name> [--task-ref <id>]
+python3 "$S/build_handoff.py" --project <project> --transition <name> [--task-ref <id>]
 ```
 
 Transitions are `modeling-computation`, `computation-validation`, `validation-paper`, and `paper-delivery`.

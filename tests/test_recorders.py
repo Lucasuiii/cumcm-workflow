@@ -734,9 +734,10 @@ class IterationTests(unittest.TestCase):
             self.assertEqual(state["stages"]["computation"], "needs_revision")
             self.assertFalse((project / ".cumcm" / "snapshots" / "computation.json").exists())
             self.assertTrue((project / ".cumcm" / "snapshots" / "intake.json").is_file())
-            # reopening is a normal state, not an error state
-            findings, _ = check_project(project, "computation")
-            self.assertEqual([item for item in findings if item.severity == "error"], [])
+            # Reopening requires renewed human review, not unrelated structural repair.
+            findings, report = check_project(project, "computation", "preflight")
+            self.assertEqual([item for item in findings if item.severity == "error" and not item.gate_only], [])
+            self.assertEqual(report["gate_status"], "awaiting_review")
 
     def test_an_optional_contract_never_blocks_a_decision_scope(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -846,6 +847,10 @@ class CompileRecorderTests(unittest.TestCase):
                                      "subproblem_ids": ["Q1"], "claim_ids": ["CLM-Q1-001"]}],
             })
             write_json(project, "paper/PAPER_PLAN.json", plan)
+            write_json(project, "validation/CLAIM_LEDGER.json", {
+                "claims": [{"claim_id": "CLM-Q1-001"}],
+                "conclusion_check": {"decision": "accepted", "reviewer_kind": "human_user",
+                    "reviewer": "fixture-user", "reviewed_at": "2026-09-07", "presented_claim_ids": ["CLM-Q1-001"]}})
             init = run_script("init_latex_paper.py", "--project", str(project), "--competition-year", "2026",
                               "--title", "候选集枚举下的最小成本", "--keywords", "枚举; 最小成本; 候选集")
             self.assertEqual(init.returncode, 0, init.stdout + init.stderr)

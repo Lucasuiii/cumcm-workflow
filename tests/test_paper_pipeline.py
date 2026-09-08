@@ -566,7 +566,8 @@ class HumanCheckpointTests(unittest.TestCase):
             data = json.loads(path.read_text(encoding="utf-8"))
             data["conclusion_check"]["decision"] = "unreviewed"
             write_json(root, "validation/CLAIM_LEDGER.json", data)
-            build_handoff(root, "validation-paper", "fixture-independent-task")
+            with self.assertRaisesRegex(ValueError, "explicit decision"):
+                build_handoff(root, "validation-paper", "fixture-independent-task")
             findings, _ = check_project(root, "delivery", "preflight")
             hit = [item for item in findings if item.rule_id == "CLAIM-E021"]
             self.assertEqual(len(hit), 1)

@@ -5,7 +5,7 @@ Delivery is a `finalizing` responsibility. It uses only current user-supplied of
 Produce the receipt with the recorder, not by hand:
 
 ```bash
-python3 scripts/record_compile.py --project <p> --update-quality
+python3 "$S/record_compile.py" --project <p> --update-quality
 ```
 
 ## Hard checks
@@ -29,3 +29,9 @@ Missing current rules or a required template yields `blocked_missing_user_materi
 This one asks a narrower question than the conclusion check did. The model is settled by now: what is being judged is the finished object — whether the answers are stated correctly in the paper, whether the pages hold together, whether the deliverables are complete. Present the rendered pages `record_compile.py` wrote to `.cumcm/tmp/pages/`, the answer to each subproblem, the open findings, and anything still in `unresolved_errors`.
 
 `presented_pages` records what was actually put in front of the reviewer. `DELIVERY-E020` rejects a check that skipped rendered pages, and `DELIVERY-E019` rejects `reviewer_kind: human_user` with nothing presented at all — if the pages were never shown, the record must not claim a person read them. A model that cannot see images has not done layout QA; say so in `notes` and record the kind honestly rather than upgrading a text transcription into a human reading.
+
+## Package the files actually delivered
+
+Run `python3 "$S/refresh_evidence.py" --project <project> --only delivery --package` before final QA and acceptance. It uses the existing delivery, LaTeX and result declarations, preserves project-relative directories, includes figure-generation scripts, and updates existing delivery metadata. `DELIVERY-E021` inspects ZIP members and bytes: missing, flattened, unsafe or stale members warn in working and block finalizing. No new manifest or hash chain is needed.
+
+This checks declared dependencies, not arbitrary imports or runtime success. Check that appendix commands refer to shipped files; use an isolated extracted copy for an authorized execution check. Inspect figure labels for overlap and remove redundant figures/tables that add no explanation. After showing all current pages and files, use the single human confirmation command in SKILL.md. Repack or edit after approval only with renewed review of the changed material.

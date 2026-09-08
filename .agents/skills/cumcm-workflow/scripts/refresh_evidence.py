@@ -19,7 +19,6 @@ from typing import Any
 from provenance import sha256_file
 
 TARGETS = {
-    "sources": "problem/SOURCE_MANIFEST.json",
     "figures": "figures/FIGURE_MANIFEST.json",
     "delivery": "delivery/DELIVERY_MANIFEST.json",
 }
@@ -59,27 +58,36 @@ def refresh_entries(root: Path, entries: list[Any], *, hash_key: str = "sha256",
 def main() -> int:
     parser = argparse.ArgumentParser(description="Refresh size/hash metadata for files already declared in the workspace")
     parser.add_argument("--project", required=True, type=Path)
+    parser.add_argument("--package", action="store_true", help="build ZIPs from existing delivery/LaTeX/result declarations, preserving directories")
+    parser.add_argument("--only", choices=sorted(TARGETS), help="refresh only this existing manifest; official sources are never refreshed")
     parser.add_argument("--runs", action="store_true", help="also refresh run manifest input/output metadata")
     args = parser.parse_args()
     root = args.project.resolve()
     if not root.is_dir():
         parser.error(f"project is not a directory: {root}")
 
+    if args.package:
+        if args.only and args.only != "delivery":
+            parser.error("--package updates delivery; use --only delivery or omit --only")
+        from delivery_archives import build_archives
+        build_archives(root, json.loads((root / TARGETS["delivery"]).read_text(encoding="utf-8")))
     total = 0
     for name, rel in TARGETS.items():
+        if args.only and name != args.only:
+            continue
         path = root / rel
         if not path.is_file():
             continue
         data = json.loads(path.read_text(encoding="utf-8"))
-        if name == "sources":
-            total += refresh_entries(root, data.get("sources", []))
-        elif name == "figures":
-            total += refresh_entries(root, data.get("figures", []), only_existing_hash=True)
+        entries = data.get("figures" if name == "figures" else "files", [])
+        changed = refresh_entries(root, entries, only_existing_hash=(name != "delivery"))
+        if changed:
+            total += changed
+            data["updated_at"] = utc_now()
+            write_atomic(path, data)
+            print(f"refreshed {rel}")
         else:
-            total += refresh_entries(root, data.get("files", []), only_existing_hash=True)
-        data["updated_at"] = utc_now()
-        write_atomic(path, data)
-        print(f"refreshed {rel}")
+            print(f"unchanged {rel}")
 
     if args.runs:
         for manifest_path in sorted((root / "runs").glob("*/RUN_MANIFEST.json")):
@@ -89,11 +97,13 @@ def main() -> int:
                 # would erase exactly the drift the checker exists to catch.
                 print(f"skipped official run {manifest.get('run_id')}; re-record it with record_run.py --rerun instead")
                 continue
-            total += refresh_entries(root, manifest.get("inputs", []), only_existing_hash=True)
-            total += refresh_entries(root, manifest.get("outputs", []), only_existing_hash=True)
-            manifest["updated_at"] = utc_now()
-            write_atomic(manifest_path, manifest)
-            print(f"refreshed {manifest_path.relative_to(root)}")
+            changed = refresh_entries(root, manifest.get("inputs", []), only_existing_hash=True)
+            changed += refresh_entries(root, manifest.get("outputs", []), only_existing_hash=True)
+            if changed:
+                total += changed
+                manifest["updated_at"] = utc_now()
+                write_atomic(manifest_path, manifest)
+                print(f"refreshed {manifest_path.relative_to(root)}")
 
     print(f"{total} metadata field group(s) updated")
     return 0
