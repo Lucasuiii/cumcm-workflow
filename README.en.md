@@ -6,6 +6,31 @@ A contest-native, evidence-focused, low-friction agent workflow for the China Un
 
 > Current version: **v0.6**. Passing the checks proves that provenance, execution records and the workflow agree — not that the mathematical model is correct. v0.6 does not support older workspaces.
 
+## Quick start
+
+Have **Codex or Claude Code**, **Python 3.10+**, and a local folder containing the official problem statement and attachments ready.
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/Lucasuiii/cumcm-workflow.git
+   cd cumcm-workflow
+   ```
+
+2. Open this repository directory as a project in Codex, or start Claude Code from this directory.
+3. Send the prompt below, replacing both paths with your own **absolute paths**. Use a new output directory that does not yet exist, separate from the repository and original materials.
+
+   ```text
+   Use cumcm-workflow to initialize a project from /absolute/path/to/official-materials,
+   with output in /absolute/path/to/new-project. Check Python dependencies and the
+   runtime environment first, then begin problem analysis following the workflow.
+   Stop and wait for my reply at each human checkpoint.
+   ```
+
+   In Codex, explicitly invoke `$cumcm-workflow`; in Claude Code, use `/cumcm-workflow`.
+
+The agent checks required dependencies on first use; computation uses MATLAB or Python, and paper compilation requires XeLaTeX. You do not need to prefill contracts or run every script yourself. Participate in the three human checkpoints: model selection, conclusions before paper writing, and final delivery. After an interruption, provide the output directory in the same project conversation and ask to resume cumcm-workflow.
+
 ## 1. What v0.6 is about
 
 **Tooling records machine facts; the agent writes judgement.**

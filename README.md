@@ -8,6 +8,30 @@
 
 ---
 
+## 快速开始
+
+准备好 **Codex 或 Claude Code**、**Python 3.10+**，以及包含官方题目和附件的本地文件夹。
+
+1. 下载仓库：
+
+   ```bash
+   git clone https://github.com/Lucasuiii/cumcm-workflow.git
+   cd cumcm-workflow
+   ```
+
+2. 在 Codex 中将这个仓库目录作为项目打开；或在此目录启动 Claude Code。
+3. 在对话中发送以下提示，把两个路径替换成自己的**绝对路径**。输出目录应是尚不存在的新目录，与仓库、原始资料分开。
+
+   ```text
+   使用 cumcm-workflow，从 /绝对路径/赛题资料 初始化项目，
+   输出到 /绝对路径/新项目目录。先检查 Python 依赖和运行环境，
+   然后按工作流开始题目分析；需要人工确认时停下来等我回复。
+   ```
+
+   Codex 可用 `$cumcm-workflow` 明确触发；Claude Code 可用 `/cumcm-workflow`。
+
+首次使用由 agent 检查所需依赖；计算阶段选择 MATLAB 或 Python，论文编译需要 XeLaTeX。你无需预先填写契约或运行每个脚本，但需要参与模型选择、写论文前的结论和最终交付三个确认点。中断后，在同一项目对话中提供输出目录并要求“继续 cumcm-workflow”。
+
 ## 1. 它解决什么问题
 
 让模型自由发挥地做数模，典型失败不是"算错"，而是这五种：
