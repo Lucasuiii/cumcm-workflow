@@ -210,6 +210,10 @@
               "notes": {
                 "type": "string",
                 "minLength": 1
+              },
+              "artifact": {
+                "$ref": "#/$defs/artifact",
+                "description": "PDF actually examined by a preserved non-recorder check; a stale binding requires renewed review."
               }
             },
             "additionalProperties": true

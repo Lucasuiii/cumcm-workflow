@@ -35,3 +35,25 @@ This one asks a narrower question than the conclusion check did. The model is se
 Run `python3 "$S/refresh_evidence.py" --project <project> --only delivery --package` before final QA and acceptance. It uses the existing delivery, LaTeX and result declarations, preserves project-relative directories, includes figure-generation scripts, and updates existing delivery metadata. `DELIVERY-E021` inspects ZIP members and bytes: missing, flattened, unsafe or stale members warn in working and block finalizing. No new manifest or hash chain is needed.
 
 This checks declared dependencies, not arbitrary imports or runtime success. Check that appendix commands refer to shipped files; use an isolated extracted copy for an authorized execution check. Inspect figure labels for overlap and remove redundant figures/tables that add no explanation. After showing all current pages and files, use the single human confirmation command in SKILL.md. Repack or edit after approval only with renewed review of the changed material.
+
+## Compile evidence refresh
+
+`record_compile.py` uses the first TeX pass to discover actual inputs through
+`-recorder`; at least one further pass must consume the same stable source set.
+`--passes` therefore runs at least two passes. Project-local chapters, figures
+and custom resources join declared `required_files` in the source snapshot and
+editable ZIP. Installed TeX trees and system fonts remain runtime dependencies;
+copy other external resources into the project. Keep bibliography source files
+in `required_files`: a TeX-only pass reads the generated `.bbl`, not its `.bib`.
+Run bibliography generation before recording the final stable compilation.
+
+The full multi-pass log remains diagnostic history; only the last engine log
+supplies final warning verdicts. `pdfinfo` must provide a real page count.
+Rendering failures and `--no-render` clear the current rendered-page list.
+A failed new attempt archives the previous receipt/log and leaves no current
+successful receipt; repair and recompile before delivery.
+
+Refreshing quality replaces only recorder-owned checks. Existing visual findings
+retain the PDF `artifact` they examined. After a PDF change, re-review them and
+update their bindings only from that actual review; a recorder never closes a
+visual failure or renews a visual pass. Content review keeps its own binding too.

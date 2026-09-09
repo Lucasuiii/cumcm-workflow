@@ -59,6 +59,13 @@ def archive_members(root: Path, manifest: dict) -> dict[str, set[str]]:
     latex = root / 'paper/LATEX_TEMPLATE_MANIFEST.json'
     editable = set(read_object(root, 'paper/LATEX_TEMPLATE_MANIFEST.json').get('required_files', [])) if latex.exists() else set()
     editable.update(declared_editable)
+    receipt_path = root / 'delivery/COMPILE_RECEIPT.json'
+    if deliverables.get('editable_latex_source', {}).get('archive') and receipt_path.is_file():
+        from provenance import snapshot_matches
+        snapshot = read_object(root, 'delivery/COMPILE_RECEIPT.json').get('source_snapshot')
+        if not snapshot_matches(root, snapshot):
+            raise ValueError('compile source snapshot is stale; recompile before packaging')
+        editable.update(snapshot['files'])
     # Figure-generation code is an editable dependency, even when figures already exist.
     for directory in ('paper/figures', 'figures'):
         if (root / directory).is_dir():

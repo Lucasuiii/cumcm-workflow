@@ -1670,6 +1670,10 @@ def check_paper_quality(
             elif question.get("status") == "concern":
                 findings.append(finding("PQUALITY-W016", "warning", "semantic", "paper", path, f"paper content can be improved: {subproblem}", related_ids=[subproblem]))
     if isinstance(layout, dict):
+        for check in as_list(layout.get("checks")):
+            if isinstance(check, dict) and "artifact" in check and check["artifact"] != paper:
+                findings.append(finding("PQUALITY-E004", "error", "visual", "paper", path,
+                                        f"layout check {check.get('check_id')} belongs to an older PDF; re-review it"))
         page_count = layout.get("page_count")
         pages = {page for page in as_list(layout.get("rendered_pages")) if isinstance(page, int)}
         if data.get("paper_status") == "final" and isinstance(page_count, int) and pages != set(range(1, page_count + 1)):

@@ -20,12 +20,13 @@ from pathlib import Path
 from typing import Any
 
 from provenance import sha256_file, tree_snapshot
+from compile_sources import observed_sources, runtime_roots
 
 WORKFLOW_VERSION = "0.6.0"
 LOG_PATTERNS = {
     "overfull": re.compile(r"^Overfull \\[hv]box", re.M),
     "underfull": re.compile(r"^Underfull \\[hv]box", re.M),
-    "undefined_reference": re.compile(r"Reference `[^']*' on page \d+ undefined|There were undefined references", re.M),
+    "undefined_reference": re.compile(r"(?:Reference|Citation) [`'][^']*' on page \d+ undefined|There were undefined (?:references|citations)", re.M),
     "missing_glyph": re.compile(r"Missing character: There is no ", re.M),
     "font_error": re.compile(r"(?:Font \\[^ ]+ not (?:loadable|found)|Package fontspec Error)", re.M),
 }
@@ -63,24 +64,28 @@ def engine_version(engine: str) -> str:
 
 
 def page_count(pdf: Path) -> int:
-    if shutil.which("pdfinfo"):
-        completed = subprocess.run(["pdfinfo", str(pdf)], capture_output=True, text=True, check=False)
+    if not shutil.which("pdfinfo"):
+        raise ValueError("pdfinfo is unavailable; cannot record a reliable page count")
+    completed = subprocess.run(["pdfinfo", str(pdf)], capture_output=True, text=True, check=False)
+    if completed.returncode == 0:
         for line in completed.stdout.splitlines():
             if line.startswith("Pages:"):
-                return int(line.split(":", 1)[1].strip())
-    data = pdf.read_bytes()
-    return max(1, len(re.findall(rb"/Type\s*/Page[^s]", data)))
+                count = int(line.split(":", 1)[1].strip())
+                if count > 0:
+                    return count
+    raise ValueError("pdfinfo could not read the produced PDF")
 
 
 def render_pages(pdf: Path, out_dir: Path) -> list[int]:
     """Rasterise every page so a reviewer looks at pixels, not at a promise."""
-    if not shutil.which("pdftoppm"):
-        return []
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if not shutil.which("pdftoppm"):
+        return []
     completed = subprocess.run(["pdftoppm", "-png", "-r", "110", str(pdf), str(out_dir / "page")], capture_output=True, text=True, check=False)
     if completed.returncode:
+        shutil.rmtree(out_dir)
         return []
     pages = []
     for item in sorted(out_dir.glob("page-*.png")):
@@ -127,33 +132,69 @@ def main() -> int:
         parser.error(f"{engine} is not installed; install it or pass --engine")
 
     work_dir = main_path.parent
-    argv = [engine, "-interaction=nonstopmode", "-halt-on-error", main_path.name]
+    argv = [engine, "-interaction=nonstopmode", "-halt-on-error", "-recorder", main_path.name]
     log_dir = root / "delivery"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_rel = "delivery/compile.log"
-    transcript = ""
-    exit_code = 0
-    for _ in range(max(1, args.passes)):
-        completed = subprocess.run(argv, cwd=work_dir, capture_output=True, text=True, check=False)
-        transcript += completed.stdout + completed.stderr
-        exit_code = completed.returncode
-        if exit_code != 0:
-            break
-    engine_log = work_dir / (main_path.stem + ".log")
-    if engine_log.is_file():
-        transcript += "\n" + engine_log.read_text(encoding="utf-8", errors="replace")
-    (root / log_rel).write_text(transcript, encoding="utf-8")
-
+    # Retire the old receipt before trying again: a failed invocation must not
+    # leave a successful receipt at the current path. Keep its diagnostics.
+    receipt_path = log_dir / "COMPILE_RECEIPT.json"
+    if receipt_path.exists():
+        history = Path(tempfile.mkdtemp(prefix="compile-", dir=log_dir))
+        shutil.move(receipt_path, history / receipt_path.name)
+        if (root / log_rel).exists():
+            shutil.copy2(root / log_rel, history / "compile.log")
+    pages_dir = root / ".cumcm" / "tmp" / "pages"
+    if pages_dir.exists():
+        shutil.rmtree(pages_dir)
     pdf_path = work_dir / (main_path.stem + ".pdf")
-    if exit_code != 0 or not pdf_path.is_file():
-        print(f"compile failed (exit {exit_code}); see {log_rel}")
+    engine_log = work_dir / (main_path.stem + ".log")
+    fls = work_dir / (main_path.stem + ".fls")
+    required_files = {str(value) for value in latex.get("required_files", [])} | {main_rel}
+    transcript = ""
+    final_log = ""
+    exit_code = 0
+    try:
+        external = runtime_roots()
+        declared_before = tree_snapshot(root, required_files, entrypoint=main_rel)
+        source_snapshot = None
+        # First pass discovers dependencies. At least one subsequent pass must
+        # consume the same, stable input set before a receipt can be published.
+        for pass_index in range(max(2, args.passes)):
+            before_pdf = pdf_path.stat().st_mtime_ns if pdf_path.exists() else None
+            fls.unlink(missing_ok=True)
+            engine_log.unlink(missing_ok=True)
+            completed = subprocess.run(argv, cwd=work_dir, capture_output=True, text=True, check=False)
+            transcript += f"\n--- pass {pass_index + 1} ---\n" + completed.stdout + completed.stderr
+            exit_code = completed.returncode
+            if engine_log.is_file():
+                final_log = engine_log.read_text(encoding="utf-8", errors="replace")
+                transcript += "\n" + final_log
+            if exit_code != 0 or not pdf_path.is_file():
+                raise ValueError(f"compile failed (exit {exit_code})")
+            if pdf_path.stat().st_mtime_ns == before_pdf:
+                raise ValueError("compile did not produce a fresh PDF")
+            if not engine_log.is_file():
+                raise ValueError("final engine log is missing")
+            observed = observed_sources(root, work_dir, fls, external) | required_files
+            current = tree_snapshot(root, observed, entrypoint=main_rel)
+            if tree_snapshot(root, required_files, entrypoint=main_rel) != declared_before:
+                raise ValueError("declared source changed during compilation")
+            if source_snapshot is not None and current != source_snapshot:
+                raise ValueError("compiled dependency set or content changed; rerun after stabilizing sources")
+            source_snapshot = current
+        checks = log_checks(final_log)
+        pages_total = page_count(pdf_path)
+        pdf_hash = sha256_file(pdf_path)
+        rendered = [] if args.no_render else render_pages(pdf_path, pages_dir)
+        if sha256_file(pdf_path) != pdf_hash or tree_snapshot(root, source_snapshot["files"], entrypoint=main_rel) != source_snapshot:
+            raise ValueError("PDF or source changed while recording compile evidence")
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        (root / log_rel).write_text(transcript + f"\nRecorder failure: {exc}\n", encoding="utf-8")
+        print(f"{exc}; see {log_rel}")
         return 1
+    (root / log_rel).write_text(transcript, encoding="utf-8")
     pdf_rel = pdf_path.relative_to(root).as_posix()
-    checks = log_checks(transcript)
-    pages_total = page_count(pdf_path)
-    rendered = [] if args.no_render else render_pages(pdf_path, root / ".cumcm" / "tmp" / "pages")
-
-    required_files = [str(value) for value in latex.get("required_files", [])]
     receipt = {
         "schema_version": WORKFLOW_VERSION,
         "artifact_type": "compile_receipt",
@@ -161,7 +202,7 @@ def main() -> int:
         "updated_at": utc_now(),
         "producer": {"kind": "script", "name": "record_compile.py", "version": WORKFLOW_VERSION},
         "selected_attempt_id": args.attempt_id,
-        "source_snapshot": tree_snapshot(root, required_files, entrypoint=main_rel),
+        "source_snapshot": source_snapshot,
         "attempts": [
             {
                 "attempt_id": args.attempt_id,
@@ -174,8 +215,8 @@ def main() -> int:
                 "page_count": pages_total,
                 "pdf_path": pdf_rel,
                 "pdf_sha256": sha256_file(pdf_path),
-                "font_check": "fail" if LOG_PATTERNS["font_error"].search(transcript) else "pass",
-                "glyph_check": "fail" if LOG_PATTERNS["missing_glyph"].search(transcript) else "pass",
+                "font_check": "fail" if LOG_PATTERNS["font_error"].search(final_log) else "pass",
+                "glyph_check": "fail" if LOG_PATTERNS["missing_glyph"].search(final_log) else "pass",
                 "diagnostic_summary": "; ".join(f"{item['check_id']}={item['status']}" for item in checks),
                 "completed_at": utc_now(),
             }
@@ -193,9 +234,17 @@ def main() -> int:
         layout = quality.get("layout_report")
         if isinstance(layout, dict):
             layout["page_count"] = pages_total
-            if rendered:
-                layout["rendered_pages"] = rendered
-            layout["checks"] = checks
+            layout["rendered_pages"] = rendered
+            machine_ids = {item["check_id"] for item in checks}
+            preserved = []
+            for item in layout.get("checks", []):
+                if isinstance(item, dict) and item.get("check_id") not in machine_ids:
+                    # A previous visual verdict remains bound to the PDF it
+                    # examined, even as this block's machine facts refresh.
+                    item = dict(item)
+                    item.setdefault("artifact", layout.get("artifact"))
+                    preserved.append(item)
+            layout["checks"] = checks + preserved
             layout["artifact"] = {"path": pdf_rel, "sha256": sha256_file(pdf_path)}
             quality["paper_artifact"] = {"path": pdf_rel, "sha256": sha256_file(pdf_path)}
             write_atomic(quality_path, quality)

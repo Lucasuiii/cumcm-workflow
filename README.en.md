@@ -195,6 +195,8 @@ verified results -> claim selection -> prose/equation/table/figure planning
 python3 $S/record_compile.py --project <p> --update-quality
 ```
 
+The receipt records project sources and figures actually read by TeX; source ZIPs use the same set. Log verdicts use the final pass. Refreshing machine facts preserves visual findings with their original PDF binding, so old reviews require renewal after the PDF changes. Unavailable rendering never reuses old page records, and a failed recompile retires the current successful receipt.
+
 Compiles, hashes the PDF, reads the page count, rasterises every page into `.cumcm/tmp/pages/`, derives layout checks from the engine log, and refreshes the machine fields of `PAPER_QUALITY_REPORT.layout_report`. Those pages are what the final check has to present — then actually look at them.
 
 For delivery, run `refresh_evidence.py --project <p> --only delivery --package`. ZIPs preserve project-relative paths and are checked for missing or stale declared files; this does not replace execution after extraction. Refresh never rewrites official sources or unchanged manifests.

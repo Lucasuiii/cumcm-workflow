@@ -117,6 +117,39 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
                 watched.add(live)
         if watched & changed_set:
             stale_runs.add(run_id)
+    # Propagate along declared output -> formal input edges, including frozen
+    # copies. A historical input requires an explicit binding decision, not a
+    # blind rerun with the old arguments.
+    def aliases(path: str) -> set[str]:
+        result = {path}
+        while live := live_path_of(path):
+            result.add(live)
+            path = live
+        return result
+
+    inputs = {
+        rid: set().union(*(aliases(str(e.get("path"))) for e in as_list(m.get("inputs"))
+                          if isinstance(e, dict) and e.get("evidence_role") == "formal_input"), set())
+        for rid, m in official_runs.items()
+    }
+    outputs = {
+        rid: set().union(*(aliases(str(e.get("path"))) for e in as_list(m.get("outputs"))
+                          if isinstance(e, dict)), set())
+        for rid, m in official_runs.items()
+    }
+    dependent_runs: set[str] = set()
+    while True:
+        affected_outputs = set().union(*(outputs[rid] for rid in stale_runs), set())
+        newly_stale = {rid for rid in official_runs if rid not in stale_runs and inputs[rid] & affected_outputs}
+        if not newly_stale:
+            break
+        dependent_runs.update(newly_stale)
+        stale_runs.update(newly_stale)
+    for run_id in sorted(dependent_runs):
+        actions["computation"].append(
+            f"refresh input bindings for {run_id} after upstream successors exist; "
+            "review intentional historical inputs and do not blindly reuse frozen parent inputs"
+        )
     for run_id in sorted(stale_runs):
         actions["computation"].append(f"re-run {run_id}: record_run.py --rerun {run_id} --official (appends a successor)")
     for run_id in sorted(set(official_runs) - stale_runs):
@@ -160,7 +193,10 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
         if untouched:
             unaffected["validation"].extend(untouched)
 
-    section_files = {str(item.get("subproblem_id")): str(item.get("path")) for item in as_list(latex.get("subproblem_sections"))}
+    section_files: dict[str, set[str]] = {}
+    for item in as_list(latex.get("subproblem_sections")):
+        if isinstance(item, dict):
+            section_files.setdefault(str(item.get("subproblem_id")), set()).add(str(item.get("path")))
     stale_sections: set[str] = set()
     for section in as_list(plan.get("paper_structure")):
         if not isinstance(section, dict):
@@ -168,17 +204,18 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
         if {str(value) for value in as_list(section.get("claim_ids"))} & stale_claims:
             for subproblem in as_list(section.get("subproblem_ids")):
                 if str(subproblem) in section_files:
-                    stale_sections.add(section_files[str(subproblem)])
+                    stale_sections.update(section_files[str(subproblem)])
     changed_tex = sorted(path for path in changed_set if path.endswith((".tex", ".bib")))
     for path in changed_tex:
         stale_sections.add(path)
     if stale_sections:
         actions["paper"].append(f"rewrite or re-review: {', '.join(sorted(stale_sections))}")
-    untouched_sections = sorted(set(section_files.values()) - stale_sections)
+    untouched_sections = sorted(set().union(*section_files.values(), set()) - stale_sections)
     if untouched_sections:
         unaffected["paper"].extend(untouched_sections)
 
-    if stale_sections or stale_runs or changed_tex:
+    compile_inputs = set(as_list(receipt.get("source_snapshot", {}).get("files")))
+    if stale_sections or stale_runs or changed_tex or compile_inputs & changed_set:
         actions["delivery"].append("recompile and rebind: record_compile.py --update-quality")
         if receipt:
             actions["delivery"].append("the previous PDF/source binding is void until the recompile succeeds")

@@ -290,7 +290,7 @@ python3 $S/record_compile.py --project <p> --update-quality
 python3 $S/paper_visible_text_check.py --project <p> --pdf paper/main.pdf
 ```
 
-`record_compile.py` 会把每一页渲染到 `.cumcm/tmp/pages/`——**然后真的去看那些图**。
+`record_compile.py` 会把每一页渲染到 `.cumcm/tmp/pages/`——**然后真的去看那些图**。 编译回执记录引擎实际读取的项目源码和图片，源码 ZIP 使用同一集合。日志判断只看最后一遍；刷新机器字段保留原有视觉发现，旧 PDF 的检查仍绑定旧版本，需要重新审查。渲染不可用不会沿用旧页记录，失败重编译也不会留下当前成功回执。
 
 **⑨ 交付**：按项目目录打包，验包检查已声明文件的缺失和过期；不代替解压后的运行检验。刷新不改官方来源，无变化不重写清单。
 
