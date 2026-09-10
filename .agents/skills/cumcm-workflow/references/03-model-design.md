@@ -87,6 +87,8 @@ Map every capability to a model component; `CAP-E013` reports any that no compon
 
 Plan meaningful checks appropriate to the actual claims: hand-solvable instance, extreme case, conservation law, out-of-sample test, residual analysis, or perturbation analysis. An independent second implementation is optional and must not be created merely for MATLAB/Python parity.
 
+When choosing discriminating evidence and the `verification_plan`, consult the applicable sections of [mechanism-validation.md](mechanism-validation.md). Select checks that could expose a plausible wrong answer, including their scope and tolerance basis; reuse existing coverage and preserve the current question’s simplifications.
+
 Before freezing, obtain approval of the selected model and scope, then build the `modeling-computation` handoff. A computation task reads that handoff rather than the full modeling conversation.
 
 To revisit a frozen model, record a `revision_requested` decision for `model-design`; it reopens the stage and everything downstream in one step.

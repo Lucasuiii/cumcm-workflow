@@ -172,6 +172,8 @@ python3 $S/plan_redo.py --project <p> --changed code/solve_q2.py
 
 ## 6. Independent validation
 
+Applicable [mechanism guidance](.agents/skills/cumcm-workflow/references/mechanism-validation.md) connects the verification plan, program-written assertions and independent review; the review package freezes the same reference. It adds no universal test checklist.
+
 Review the current task’s risks: task coverage, model and solution validity, discriminating evidence and claim scope. Choose checks appropriate to the problem, not a fixed experiment checklist. The first review is full and context-separated. The package copies only canonical evidence for formally indexed results and declares `context_excluded` — the originating task transcript, debug history, failed runs and prior review prose it physically left out. It does not claim the reviewer holds no conclusions.
 
 The result template ships with every independence field `null`; the reviewer or the user must assert them, and a null fails. Differing originating/reviewer task references are a paste guard, not proof.

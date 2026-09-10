@@ -92,6 +92,8 @@ Every formal consumer resolves "the run behind this result" through the same cod
 
 Never edit a run directory by hand, and never re-point a result at a different run silently: `index_result.py --follow-lineage` exists so that choosing the run behind a claim stays a deliberate act.
 
+Translate applicable checks from [mechanism-validation.md](mechanism-validation.md) into the selected implementation’s result-based assertions. Inspect final exported/rounded values when they are the answer, retain diagnostic quantities and tolerance rationale with the existing outputs, and record verdicts through `--assert-file`. A recorded pass establishes that the code evaluated its condition; the reviewer still checks whether that condition means what the claim needs.
+
 ## Official run evidence
 
 Each `RUN_MANIFEST.json` records:

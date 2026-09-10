@@ -123,8 +123,13 @@ def build(project: Path, *, review_mode: str = "auto", previous_review_path: str
         staging = Path(temp) / "package"
         staging.mkdir()
         asset_root = Path(__file__).resolve().parents[1] / "assets" / "independent-review"
-        for name in ("SKILL.md", "REVIEW_REQUEST.md"):
-            shutil.copy2(asset_root / name, staging / name)
+        # Freeze the canonical guide with the other instructions. It is not a
+        # project-relative evidence source; package_digest binds its content.
+        instruction_sources = [asset_root / "SKILL.md", asset_root / "REVIEW_REQUEST.md",
+                               asset_root.parents[1] / "references" / "mechanism-validation.md"]
+        for source in instruction_sources:
+            name = source.name
+            shutil.copy2(source, staging / name)
             records.append(
                 {
                     "path": (PACKAGE_REL / name).as_posix(),

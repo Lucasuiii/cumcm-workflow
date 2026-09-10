@@ -272,6 +272,8 @@ python3 $S/index_result.py --project <p> --follow-lineage
 
 **⑦ 冻结与复核**：
 
+按需读取[数学机制验证指导](.agents/skills/cumcm-workflow/references/mechanism-validation.md)，将适用风险接入验证计划、程序断言和独立复核；复核包冻结同一份参考，不增加全题通用检查清单。
+
 ```bash
 python3 $S/set_mode.py --project <p> --mode finalizing
 python3 $S/build_handoff.py --project <p> --transition computation-validation
