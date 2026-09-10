@@ -142,6 +142,30 @@ class HumanStops(unittest.TestCase):
 
 
 class RecorderAndRefresh(unittest.TestCase):
+    def test_parallel_decisions_allocate_unique_ids_and_leave_consistent_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_project(Path(tmp))
+            commands = [
+                [sys.executable, str(SCRIPTS / 'record_decision.py'), '--project', str(root),
+                 '--stage', 'model-design', '--decision', 'accepted', '--confirm-human',
+                 '--task-turn-ref', f'user-turn-{index}', '--summary', f'accepted {index}']
+                for index in (1, 2)
+            ]
+            children = [subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE) for command in commands]
+            for child in children:
+                out, err = child.communicate(timeout=30)
+                self.assertEqual(child.returncode, 0, out.decode() + err.decode())
+            events = [json.loads(line) for line in (root / '.cumcm/decisions.jsonl').read_text().splitlines()]
+            ids = [event['decision_id'] for event in events]
+            self.assertEqual(len(ids), 2)
+            self.assertEqual(len(set(ids)), 2)
+            snapshot = json.loads((root / '.cumcm/snapshots/model-design.json').read_text())
+            state = json.loads((root / '.cumcm/state.json').read_text())
+            checkpoint = json.loads((root / 'model/MODEL_CONTRACT.json').read_text())
+            self.assertIn(snapshot['decision_id'], ids)
+            self.assertEqual(state['stages']['model-design'], 'passed')
+            self.assertEqual(checkpoint['selection_check']['decision'], 'accepted')
+
     def test_parallel_runs_reserve_distinct_directories(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_project(Path(tmp))
@@ -177,6 +201,23 @@ class RecorderAndRefresh(unittest.TestCase):
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertEqual(source.read_bytes(), before)
             self.assertEqual(delivery.read_bytes(), initial)
+
+    def test_refresh_rejects_traversal_and_absolute_paths_outside_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = make_project(base)
+            outside = base / 'outside.txt'
+            outside.write_text('private')
+            for declared in ('../outside.txt', str(outside.resolve())):
+                with self.subTest(path=declared):
+                    write_json(root, 'delivery/DELIVERY_MANIFEST.json', {
+                        'files': [{'path': declared, 'sha256': 'stale', 'size': 0}]
+                    })
+                    before = (root / 'delivery/DELIVERY_MANIFEST.json').read_bytes()
+                    done = run_script('refresh_evidence.py', '--project', str(root), '--only', 'delivery')
+                    self.assertNotEqual(done.returncode, 0)
+                    self.assertIn('outside project', done.stderr)
+                    self.assertEqual((root / 'delivery/DELIVERY_MANIFEST.json').read_bytes(), before)
 
     def test_structured_verification_plan_matches_assertion_name(self):
         model = {'components': [{'model_id': 'M', 'capability_ids': ['C'],

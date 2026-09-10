@@ -122,6 +122,37 @@ def make_project(temp: Path) -> Path:
 
 
 class RecorderTests(unittest.TestCase):
+    def test_command_keeps_internal_cli_separator_and_records_exact_argv(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = make_project(Path(temp))
+            script = project / "code" / "show_argv.py"
+            script.write_text("import json, sys\nprint(json.dumps(sys.argv[1:]))\n", encoding="utf-8")
+            completed = run_script(
+                "record_run.py", "--project", str(project), "--",
+                sys.executable, "code/show_argv.py", "before", "--", "after",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            manifest = json.loads((project / "runs/RUN-001/RUN_MANIFEST.json").read_text(encoding="utf-8"))
+            expected = [sys.executable, "code/show_argv.py", "before", "--", "after"]
+            self.assertEqual(manifest["argv"], expected)
+            self.assertEqual(
+                json.loads((project / manifest["stdout_path"]).read_text(encoding="utf-8")),
+                ["before", "--", "after"],
+            )
+
+    def test_rerun_rejects_a_replacement_command(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = make_project(Path(temp))
+            first = run_script("record_run.py", "--project", str(project), "--", sys.executable, "code/solve.py")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            refused = run_script(
+                "record_run.py", "--project", str(project), "--rerun", "RUN-001", "--",
+                sys.executable, "-c", "print('different')",
+            )
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("cannot provide a command with --rerun", refused.stderr)
+            self.assertEqual({path.name for path in (project / "runs").iterdir()}, {"RUN-001"})
+
     def test_exploratory_run_needs_no_declarations_and_never_blocks(self):
         with tempfile.TemporaryDirectory() as temp:
             project = make_project(Path(temp))
@@ -211,6 +242,7 @@ class RecorderTests(unittest.TestCase):
             second = json.loads((project / "runs" / "RUN-Q1-002" / "RUN_MANIFEST.json").read_text(encoding="utf-8"))
             self.assertEqual(second["run_id"], "RUN-Q1-002")
             self.assertEqual(second["parent_run_id"], "RUN-Q1-001")
+            self.assertEqual(second["argv"], json.loads(first.read_text(encoding="utf-8"))["argv"])
             self.assertEqual(second["capability_ids"], ["CAP-Q1-001"])
             self.assertIn("0.5", (project / "runs/RUN-Q1-002/source/code/solve.py").read_text(encoding="utf-8"))
 

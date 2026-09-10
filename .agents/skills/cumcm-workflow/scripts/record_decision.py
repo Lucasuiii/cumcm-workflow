@@ -8,6 +8,7 @@ that iteration never requires hand-editing .cumcm/state.json."""
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -95,6 +96,11 @@ def main() -> int:
     if not root.is_dir():
         parser.error(f"project is not a directory: {root}")
     log_path = root / ".cumcm" / "decisions.jsonl"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Keep this descriptor alive through checkpoint, append-only log, snapshot,
+    # and state writes. flock is released automatically on every exit path.
+    lock_stream = (root / ".cumcm" / "decisions.lock").open("a+")
+    fcntl.flock(lock_stream, fcntl.LOCK_EX)
     events = load_events(log_path)
     if not args.decision_id:
         used = {event["decision_id"] for event in events}
@@ -182,7 +188,6 @@ def main() -> int:
     }
     if checkpoint_data is not None:
         write_json_atomic(checkpoint_path, checkpoint_data)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
     snapshot_path = root / ".cumcm" / "snapshots" / f"{args.stage}.json"

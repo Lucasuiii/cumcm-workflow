@@ -18,13 +18,24 @@ def set_mode(project: Path, mode: str) -> dict:
     state = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(state, dict) or state.get("workflow_version") != WORKFLOW_VERSION:
         raise ValueError(f"mode switch requires workflow {WORKFLOW_VERSION}")
-    state["mode"] = mode
+    candidate = dict(state)
+    candidate["mode"] = mode
+    _, summary = check_project(
+        project,
+        str(candidate.get("current_stage")),
+        "preflight",
+        state_override=candidate,
+    )
+    if mode == "finalizing" and summary["blocking_error_count"]:
+        raise ValueError(
+            "finalizing preflight is blocking; state was not changed "
+            f"({summary['blocking_error_count']} blocking error(s))"
+        )
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as stream:
-        json.dump(state, stream, ensure_ascii=False, indent=2)
+        json.dump(candidate, stream, ensure_ascii=False, indent=2)
         stream.write("\n")
         temp_name = stream.name
     os.replace(temp_name, path)
-    _, summary = check_project(project, str(state.get("current_stage")), "preflight")
     return summary
 
 

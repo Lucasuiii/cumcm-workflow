@@ -2229,7 +2229,13 @@ def candidate_summary(model: Any) -> list[dict[str, Any]]:
     return summary
 
 
-def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[list[Finding], dict[str, Any]]:
+def check_project(
+    root: Path,
+    stage: str,
+    gate_mode: str = "enforce",
+    *,
+    state_override: dict[str, Any] | None = None,
+) -> tuple[list[Finding], dict[str, Any]]:
     """Deterministic evidence check through `stage`.
 
     v0.6 has exactly two knobs: the project mode (`working` / `finalizing`) decides
@@ -2240,7 +2246,9 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
         raise ValueError(f"unknown stage: {stage}")
     if gate_mode not in GATE_MODES:
         raise ValueError(f"unknown gate mode: {gate_mode}")
-    state_preview, _ = read_json(root / CONTRACT_PATHS["state"])
+    state_preview = state_override
+    if state_preview is None:
+        state_preview, _ = read_json(root / CONTRACT_PATHS["state"])
     workflow_version = state_preview.get("workflow_version") if isinstance(state_preview, dict) else None
     workflow_mode = state_preview.get("mode") if isinstance(state_preview, dict) else None
     mode = workflow_mode if workflow_mode in WORKFLOW_MODES else "working"
@@ -2258,6 +2266,8 @@ def check_project(root: Path, stage: str, gate_mode: str = "enforce") -> tuple[l
             if STAGES.index(stage) >= STAGES.index(threshold):
                 required.append(name)
     contracts, findings = load_contracts(root, required)
+    if state_override is not None and "state" in contracts:
+        contracts["state"] = state_override
 
     for name, from_stage in OPTIONAL_CONTRACTS.items():
         if name in contracts or STAGES.index(stage) < STAGES.index(from_stage):

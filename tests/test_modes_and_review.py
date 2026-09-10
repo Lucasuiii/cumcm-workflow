@@ -38,6 +38,39 @@ def review_finding(finding_id: str, severity: str, status: str) -> dict:
 
 
 class ModesAndReviewTests(unittest.TestCase):
+    def test_set_mode_refuses_blocked_finalizing_without_changing_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            state_path = root / ".cumcm/state.json"
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["mode"] = "working"
+            write_json(root, ".cumcm/state.json", state)
+            before = state_path.read_bytes()
+            (root / "code/solve.py").write_text("print('drift')\n", encoding="utf-8")
+            completed = __import__("subprocess").run(
+                [sys.executable, str(SCRIPTS / "set_mode.py"), "--project", str(root), "--mode", "finalizing"],
+                check=False, capture_output=True, text=True,
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("blocking", completed.stderr)
+            self.assertEqual(state_path.read_bytes(), before)
+
+    def test_set_mode_commits_a_valid_finalizing_transition(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            state = json.loads((root / ".cumcm/state.json").read_text(encoding="utf-8"))
+            state["mode"] = "working"
+            write_json(root, ".cumcm/state.json", state)
+            completed = __import__("subprocess").run(
+                [sys.executable, str(SCRIPTS / "set_mode.py"), "--project", str(root), "--mode", "finalizing"],
+                check=False, capture_output=True, text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            final = json.loads((root / ".cumcm/state.json").read_text(encoding="utf-8"))
+            self.assertEqual(final["mode"], "finalizing")
+
     def test_enforce_cannot_bypass_stage_state_or_decisions(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -258,6 +291,37 @@ class ModesAndReviewTests(unittest.TestCase):
             self.assertIn("computation", plan["actions"])
             self.assertIn("validation", plan["actions"])
             self.assertIn("delivery", plan["actions"])
+
+    def test_official_source_change_propagates_through_every_downstream_layer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_paper_ready_project(root)
+            run_path = root / "runs/RUN-Q1-001/RUN_MANIFEST.json"
+            run = json.loads(run_path.read_text(encoding="utf-8"))
+            run["inputs"][0]["evidence_role"] = "auxiliary_input"
+            write_json(root, "runs/RUN-Q1-001/RUN_MANIFEST.json", run)
+
+            plans = [
+                build_plan(root, ["problem/official/problem.txt"]),
+                build_plan(root, ["./problem/official/problem.txt"]),
+                build_plan(root, [str(root / "problem/official/problem.txt")]),
+            ]
+            for plan in plans:
+                self.assertEqual(plan["changed_paths"], ["problem/official/problem.txt"])
+                self.assertEqual(plan["stale_facts"], ["FACT-Q1-001"])
+                self.assertEqual(plan["stale_capabilities"], ["CAP-Q1-001"])
+                self.assertEqual(plan["stale_models"], ["MODEL-Q1-001"])
+                self.assertEqual(plan["stale_official_runs"], ["RUN-Q1-001"])
+                self.assertEqual(plan["stale_results"], ["RES-Q1-001"])
+                self.assertEqual(plan["stale_claims"], ["CLM-Q1-001"])
+                self.assertTrue(set(("intake", "problem-analysis", "model-design", "computation", "validation", "paper", "delivery")).issubset(plan["actions"]))
+
+    def test_redo_plan_rejects_project_escape(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_valid_project(root)
+            with self.assertRaisesRegex(ValueError, "outside project"):
+                build_plan(root, ["../outside.txt"])
 
     def test_redo_plan_leaves_unrelated_work_alone(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -624,4 +688,3 @@ class ModesAndReviewTests(unittest.TestCase):
                 with self.assertRaises(OSError):
                     commit_staged_tree(staging, paper)
             self.assertEqual(list(paper.iterdir()), [])
-

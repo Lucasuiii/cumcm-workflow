@@ -46,11 +46,23 @@ def live_path_of(frozen: str) -> str | None:
     return None
 
 
+def normalize_changed_path(root: Path, value: str) -> str:
+    declared = value.strip()
+    candidate = Path(declared)
+    resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+    try:
+        return resolved.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ValueError(f"changed path resolves outside project: {value}") from exc
+
+
 def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
     root = root.resolve()
-    changed_set = {path.strip() for path in changed if path.strip()}
+    changed_set = {normalize_changed_path(root, path) for path in changed if path.strip()}
     sources = read(root, "problem/SOURCE_MANIFEST.json")
     facts = read(root, "analysis/PROBLEM_FACTS.json")
+    capabilities = read(root, "analysis/TASK_CAPABILITIES.json")
+    model = read(root, "model/MODEL_CONTRACT.json")
     results_index = read(root, "results/RESULTS_INDEX.json")
     claims = read(root, "validation/CLAIM_LEDGER.json")
     review = read(root, "validation/INDEPENDENT_REVIEW_RESULT.json")
@@ -62,20 +74,64 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
     unaffected: dict[str, list[str]] = {stage: [] for stage in STAGE_ORDER}
 
     # --- official sources -------------------------------------------------
-    touched_sources = [
+    touched_sources = {
         str(item.get("source_id"))
         for item in as_list(sources.get("sources"))
         if isinstance(item, dict) and str(item.get("path")) in changed_set
-    ]
+    }
+    fact_items = [item for item in as_list(facts.get("facts")) if isinstance(item, dict)]
+    all_facts = {str(item.get("fact_id") or item.get("id")) for item in fact_items}
+    stale_facts = {
+        str(item.get("fact_id") or item.get("id"))
+        for item in fact_items
+        if str(item.get("source_id")) in touched_sources
+    }
+    # A touched official source without a complete source_id -> fact edge is
+    # ambiguous. Invalidation planning must fail conservative, not miss work.
+    mapped_sources = {str(item.get("source_id")) for item in fact_items}
+    if touched_sources - mapped_sources:
+        stale_facts = set(all_facts)
     if touched_sources:
         actions["intake"].append(f"re-verify official inventory for {', '.join(sorted(touched_sources))}")
-        dependent_facts = [
-            str(item.get("fact_id") or item.get("id"))
-            for item in as_list(facts.get("facts"))
-            if isinstance(item, dict) and str(item.get("source_id")) in set(touched_sources)
-        ]
-        if dependent_facts:
-            actions["problem-analysis"].append(f"re-extract facts: {', '.join(sorted(dependent_facts))}")
+        if stale_facts:
+            actions["problem-analysis"].append(f"re-extract facts: {', '.join(sorted(stale_facts))}")
+        else:
+            actions["problem-analysis"].append("re-extract facts affected by the changed official source")
+
+    capability_items = [item for item in as_list(capabilities.get("capabilities")) if isinstance(item, dict)]
+    all_capabilities = {str(item.get("capability_id")) for item in capability_items}
+    stale_capabilities = {
+        str(item.get("capability_id"))
+        for item in capability_items
+        if {str(value) for value in as_list(item.get("fact_ids"))} & stale_facts
+    }
+    mapped_facts = set().union(
+        *({str(value) for value in as_list(item.get("fact_ids"))} for item in capability_items),
+        set(),
+    )
+    if stale_facts - mapped_facts:
+        stale_capabilities = set(all_capabilities)
+    if touched_sources:
+        detail = ", ".join(sorted(stale_capabilities)) or "all capabilities with unresolved source dependencies"
+        actions["problem-analysis"].append(f"re-derive capabilities: {detail}")
+
+    model_items = [item for item in as_list(model.get("components")) if isinstance(item, dict)]
+    all_models = {str(item.get("model_id")) for item in model_items}
+    stale_models = {
+        str(item.get("model_id"))
+        for item in model_items
+        if {str(value) for value in as_list(item.get("capability_ids"))} & stale_capabilities
+        or {str(value) for value in as_list(item.get("inputs"))} & (touched_sources | stale_facts)
+    }
+    mapped_capabilities = set().union(
+        *({str(value) for value in as_list(item.get("capability_ids"))} for item in model_items),
+        set(),
+    )
+    if stale_capabilities - mapped_capabilities:
+        stale_models = set(all_models)
+    if touched_sources:
+        detail = ", ".join(sorted(stale_models)) or "all models with unresolved capability dependencies"
+        actions["model-design"].append(f"re-evaluate models: {detail}")
 
     # --- runs whose recorded source tree or formal inputs moved -----------
     stale_runs: set[str] = set()
@@ -117,6 +173,22 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
                 watched.add(live)
         if watched & changed_set:
             stale_runs.add(run_id)
+    stale_candidate_ids = {
+        str(candidate.get("candidate_id"))
+        for component in model_items
+        if str(component.get("model_id")) in stale_models
+        for candidate in as_list(component.get("candidates"))
+        if isinstance(candidate, dict)
+    }
+    upstream_runs = {
+        run_id
+        for run_id, manifest in official_runs.items()
+        if {str(value) for value in as_list(manifest.get("capability_ids"))} & stale_capabilities
+        or {str(value) for value in as_list(manifest.get("candidate_ids"))} & stale_candidate_ids
+    }
+    if touched_sources and official_runs and not upstream_runs and not stale_runs:
+        upstream_runs = set(official_runs)
+    stale_runs.update(upstream_runs)
     # Propagate along declared output -> formal input edges, including frozen
     # copies. A historical input requires an explicit binding decision, not a
     # blind rerun with the old arguments.
@@ -156,25 +228,39 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
         unaffected["computation"].append(run_id)
 
     # --- results, claims, sections ---------------------------------------
+    result_items = [item for item in as_list(results_index.get("results")) if isinstance(item, dict)]
+    capability_result_ids = set().union(
+        *(
+            {str(value) for value in as_list(item.get("result_ids"))}
+            for item in capability_items
+            if str(item.get("capability_id")) in stale_capabilities
+        ),
+        set(),
+    )
     stale_results = {
         str(item.get("result_id"))
-        for item in as_list(results_index.get("results"))
-        if isinstance(item, dict) and str(item.get("run_id")) in stale_runs
+        for item in result_items
+        if str(item.get("run_id")) in stale_runs or str(item.get("result_id")) in capability_result_ids
     }
+    if touched_sources and result_items and not stale_results:
+        stale_results = {str(item.get("result_id")) for item in result_items}
     if stale_results:
         actions["computation"].append(
             f"re-point results to the successor: index_result.py --follow-lineage ({', '.join(sorted(stale_results))})"
         )
 
+    claim_items = [item for item in as_list(claims.get("claims")) if isinstance(item, dict)]
     stale_claims: set[str] = set()
-    for claim in as_list(claims.get("claims")):
-        if not isinstance(claim, dict):
-            continue
+    for claim in claim_items:
         evidence = claim.get("evidence") if isinstance(claim.get("evidence"), dict) else {}
         touched = {str(value) for value in as_list(evidence.get("result_ids"))} & stale_results
         touched |= {str(value) for value in as_list(evidence.get("run_ids"))} & stale_runs
+        touched |= {str(value) for value in as_list(evidence.get("fact_ids"))} & stale_facts
+        touched |= {str(value) for value in as_list(evidence.get("model_ids"))} & stale_models
         if touched:
             stale_claims.add(str(claim.get("claim_id")))
+    if touched_sources and claim_items and not stale_claims:
+        stale_claims = {str(item.get("claim_id")) for item in claim_items}
     if stale_claims:
         actions["validation"].append(f"re-establish evidence for claims: {', '.join(sorted(stale_claims))}")
 
@@ -205,23 +291,30 @@ def build_plan(root: Path, changed: list[str]) -> dict[str, Any]:
             for subproblem in as_list(section.get("subproblem_ids")):
                 if str(subproblem) in section_files:
                     stale_sections.update(section_files[str(subproblem)])
+    if stale_claims and not stale_sections:
+        stale_sections.update(set().union(*section_files.values(), set()))
     changed_tex = sorted(path for path in changed_set if path.endswith((".tex", ".bib")))
     for path in changed_tex:
         stale_sections.add(path)
     if stale_sections:
         actions["paper"].append(f"rewrite or re-review: {', '.join(sorted(stale_sections))}")
+    elif stale_claims:
+        actions["paper"].append("rewrite or re-review all paper sections whose dependency mapping is incomplete")
     untouched_sections = sorted(set().union(*section_files.values(), set()) - stale_sections)
     if untouched_sections:
         unaffected["paper"].extend(untouched_sections)
 
     compile_inputs = set(as_list(receipt.get("source_snapshot", {}).get("files")))
-    if stale_sections or stale_runs or changed_tex or compile_inputs & changed_set:
+    if stale_sections or stale_claims or stale_runs or stale_models or changed_tex or compile_inputs & changed_set:
         actions["delivery"].append("recompile and rebind: record_compile.py --update-quality")
         if receipt:
             actions["delivery"].append("the previous PDF/source binding is void until the recompile succeeds")
 
     return {
         "changed_paths": sorted(changed_set),
+        "stale_facts": sorted(stale_facts),
+        "stale_capabilities": sorted(stale_capabilities),
+        "stale_models": sorted(stale_models),
         "stale_official_runs": sorted(stale_runs),
         "stale_results": sorted(stale_results),
         "stale_claims": sorted(stale_claims),
@@ -240,7 +333,10 @@ def main() -> int:
     root = args.project.resolve()
     if not root.is_dir():
         parser.error(f"project is not a directory: {root}")
-    plan = build_plan(root, args.changed)
+    try:
+        plan = build_plan(root, args.changed)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.json:
         print(json.dumps(plan, ensure_ascii=False, indent=2))
         return 0

@@ -260,17 +260,21 @@ def main() -> int:
     if not root.is_dir():
         parser.error(f"project is not a directory: {root}")
 
-    command = [token for token in args.command if token != "--"]
+    command = list(args.command)
+    if command and command[0] == "--":
+        command = command[1:]
     previous: dict[str, Any] = {}
     run_id = args.run_id
     if args.rerun:
         previous = load_previous(root, args.rerun)
+        if command:
+            parser.error("cannot provide a command with --rerun; a rerun executes the parent's exact argv")
         # A rerun appends. Overwriting the parent would destroy the only record of
         # what the superseded run executed and produced.
         run_id = run_id or child_run_id(root, args.rerun)
         if run_id == args.rerun:
             parser.error("a rerun must use a new run id; it never overwrites its parent")
-        command = command or [str(token) for token in previous.get("argv", [])]
+        command = [str(token) for token in previous.get("argv", [])]
     if not command:
         parser.error("provide the command to execute after --")
     run_id = run_id or next_run_id(root)

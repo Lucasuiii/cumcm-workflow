@@ -260,9 +260,13 @@ def build(project: Path, *, review_mode: str = "auto", previous_review_path: str
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         if destination.exists():
+            old_manifest = require_object(destination / "REVIEW_PACKAGE_MANIFEST.json")
+            old_digest = old_manifest.get("package_digest")
+            if not isinstance(old_digest, str) or not old_digest:
+                raise ValueError("existing review package manifest has no package_digest")
             archive_root = project / "validation" / "review-archive"
             archive_root.mkdir(parents=True, exist_ok=True)
-            archived = archive_root / f"package-{manifest['package_digest'][:12]}"
+            archived = archive_root / f"package-{old_digest[:12]}"
             if archived.exists():
                 raise ValueError(f"review package archive already exists: {archived}")
             shutil.move(destination, archived)

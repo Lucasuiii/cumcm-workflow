@@ -37,11 +37,15 @@ def write_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 
 def refresh_entries(root: Path, entries: list[Any], *, hash_key: str = "sha256", only_existing_hash: bool = False) -> int:
+    root = root.resolve()
     changed = 0
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
             continue
-        target = root / entry["path"]
+        declared = entry["path"]
+        target = (root / declared).resolve() if not Path(declared).is_absolute() else Path(declared).resolve()
+        if not target.is_relative_to(root):
+            raise ValueError(f"manifest path resolves outside project: {declared}")
         if not target.is_file():
             continue
         if only_existing_hash and not entry.get(hash_key):

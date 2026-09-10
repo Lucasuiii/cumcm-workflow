@@ -84,6 +84,18 @@ class ReviewAndVisibleTextTests(unittest.TestCase):
             self.assertEqual(sorted(manifest["context_excluded"]), ["debug_history", "failed_runs", "originating_task_transcript", "prior_review_prose"])
             self.assertEqual(manifest["reviewer_selection"]["status"], "unreviewed")
 
+    def test_refresh_archives_existing_review_package_under_its_own_digest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            build_valid_project(root)
+            old_manifest_path = root / "validation/independent-review-package/REVIEW_PACKAGE_MANIFEST.json"
+            old_digest = json.loads(old_manifest_path.read_text(encoding="utf-8"))["package_digest"]
+            new_manifest_path = build_review_package(root, refresh=True)
+            new_digest = json.loads(new_manifest_path.read_text(encoding="utf-8"))["package_digest"]
+            self.assertNotEqual(old_digest, new_digest)
+            self.assertTrue((root / "validation/review-archive" / f"package-{old_digest[:12]}").is_dir())
+            self.assertFalse((root / "validation/review-archive" / f"package-{new_digest[:12]}").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
