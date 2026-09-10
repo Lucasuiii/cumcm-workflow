@@ -2,42 +2,95 @@
 
 English | [简体中文](README.md)
 
-A contest-native, evidence-focused, low-friction agent workflow for the China Undergraduate Mathematical Contest in Modeling. Runs under both **Codex** and **Claude Code**.
+An AI-agent workflow for the China Undergraduate Mathematical Contest in Modeling. It starts from official materials and connects modelling, computation, review, paper writing and final delivery into one inspectable, traceable evidence chain.
 
-> Current version: **v0.6**. Passing the checks proves that provenance, execution records and the workflow agree — not that the mathematical model is correct. v0.6 does not support older workspaces.
+**Preserve official materials → analyse the problem → evaluate model candidates → run official computation → review independently → write in LaTeX → QA and deliver the PDF**
+
+It does not supply a ready-made answer or decide whether a model is mathematically correct. It makes sure that **every conclusion entering the paper can be traced to the official problem and a computation that actually ran**, while returning decisions to you at model selection, conclusions before paper writing, and final delivery.
+
+Runs under **Codex** and **Claude Code**. Current version: **v0.6**; older workspaces are not supported.
 
 ## Quick start
 
-Have **Codex or Claude Code**, **Python 3.10+**, and a local folder containing the official problem statement and attachments ready.
+### 1. Prepare the materials
 
-Choose your environment and path format:
+Put the current year's official materials in one local directory. During initialization, the workflow copies and identifies these files without modifying the source directory.
 
-- **macOS / MacBook**: open Codex or Claude Code with local file and terminal access. Example materials path: `/Users/yourname/Documents/official-materials`.
-- **Windows (WSL2 recommended)**: run the agent and workflow tools in the WSL2 Linux environment; let the agent download the repository. Windows `C:\Users\yourname\Documents\official-materials` typically maps to `/mnt/c/Users/yourname/Documents/official-materials`; a new project can use `/home/your-wsl-username/cumcm-projects/2026B`. Python, the selected computation backend and XeLaTeX must be available in the execution environment; do not assume WSL automatically detects Windows installations.
-- **Native Windows PowerShell**: Bash examples, especially `$S`, `$PWD` and `ln -s`, require adaptation. CI currently runs on Linux; native Windows has not been fully validated. WSL2 is a recommended route, not a claim of completed Windows end-to-end testing.
+| What to prepare | Required? | Notes |
+|---|---|---|
+| **Codex or Claude Code** | Required | Needs network, local file and terminal execution access |
+| **Python 3.10+** | Required | The agent checks dependencies on first use; official computation may use MATLAB or Python |
+| **Official problem statement** | Required | The PDF, Word file or other official edition is the source for requirements and numerical constraints |
+| **Official attachments and result templates** | Required when supplied | Raw data, instructions and files such as `result*.xlsx`; keep them together and do not overwrite the originals |
+| **Current format, submission and AI-use rules** | Required when published | Used for paper layout, submission packaging and compliance; do not substitute rules from another year |
+| **A new output directory** | Required | Use an absolute path that does not yet exist, separate from both the official materials and workflow tools |
 
-Use paths as seen by the **agent's execution environment** in your prompt; do not mix Windows and WSL path formats.
+### 2. Check the path format
 
-Open a writable local working directory and send the prompt below to the AI. No manual download or prior Skill installation is needed. Replace the materials and output paths with your own **absolute paths**; the output directory should not exist yet. The agent needs network access, local file access and terminal execution permissions.
+- **macOS / MacBook**: an example materials path is `/Users/yourname/Documents/official-materials`.
+- **Windows (WSL2 recommended)**: run the agent and workflow tools in the WSL2 Linux environment. Windows `C:\Users\yourname\Documents\official-materials` typically maps to `/mnt/c/Users/yourname/Documents/official-materials`; a new project can use `/home/your-wsl-username/cumcm-projects/2026B`.
+- **Native Windows PowerShell**: the Bash examples later in this README, especially `$S`, `$PWD` and `ln -s`, cannot be copied verbatim. CI currently runs on Linux and native Windows has not been validated end to end, so WSL2 is the preferred route.
+
+Use path formats visible to the **agent's execution environment**; do not mix Windows and WSL paths. Python, the selected computation backend and XeLaTeX must also be installed in that execution environment.
+
+### 3. Conversation one: download the workflow and prepare the environment
+
+For first use, open a dedicated conversation that handles only the workflow download and environment setup. **Do not provide the contest-materials path or initialize a project yet.** From a writable local working directory, send:
 
 ```text
-Use the latest main workflow from https://github.com/Lucasuiii/cumcm-workflow.
-First git clone the repository into a separate tools directory within the current
-writable working directory, apart from official materials and project output.
-If a checkout from the same repository exists, inspect its version and local changes;
-do not overwrite existing work. Create a separate clean checkout if needed.
-Read .agents/skills/cumcm-workflow/SKILL.md inside the downloaded repository,
-follow its contest-solving workflow, and invoke scripts using the Skill's absolute path.
-Initialize from /absolute/path/to/official-materials,
-with output in /absolute/path/to/new-project.
-Check Python dependencies and the runtime environment before problem analysis.
+Prepare the runtime environment for the latest main workflow from
+https://github.com/Lucasuiii/cumcm-workflow.
+This conversation is only for downloading the workflow, reading its instructions,
+and checking and configuring the environment. Do not read a contest problem,
+initialize a contest project, or begin modelling.
+
+First inspect the current working directory without changing it. Use git clone to download the repository
+into a separate tools directory. If a checkout from the same repository already exists,
+inspect its remote, version and local changes; do not overwrite existing work.
+Create a separate clean checkout if needed.
+Read the complete .agents/skills/cumcm-workflow/SKILL.md inside the tools directory.
+Using the Skill's absolute path, check Python 3.10+, required Python dependencies,
+an available MATLAB or Python computation backend, XeLaTeX, and PDF rendering support.
+
+Before installing dependencies or changing the system environment, list the proposed
+changes and wait for my explicit approval. Once the environment is ready, stop and report
+the workflow directory, absolute Skill path, detected versions, available backend,
+and any remaining limitations for use in the next conversation.
+```
+
+Even if the Skill is already installed, use this conversation to confirm the checkout version, actual Skill path and runtime environment. A discoverable Skill alone does not prove that the environment is ready.
+
+### 4. Conversation two: initialize the contest project and begin
+
+After conversation one confirms that the environment is ready, **start a new conversation**. Insert the workflow directory it reported, your official-materials directory, and a new project output directory into this prompt:
+
+```text
+Use the prepared CUMCM Workflow to begin this contest problem.
+
+Workflow tools directory: /absolute/path/to/cumcm-workflow
+Official materials directory: /absolute/path/to/official-materials
+New project output directory: /absolute/path/to/a-directory-that-does-not-exist
+
+First inspect the workflow and official-materials directories without changing them.
+Confirm the workflow version and working-tree state, and do not overwrite existing work.
+Read the complete .agents/skills/cumcm-workflow/SKILL.md and invoke scripts using
+the Skill's absolute path. Confirm that the Python dependencies, computation backend,
+and XeLaTeX environment prepared in conversation one are still available.
+If the environment is incomplete, stop and report what is missing; do not install
+dependencies or change the system environment in this conversation.
+
+Identify the problem statement, attachments, result templates, and current format,
+submission and AI-use rules. Initialize a new project from the official materials,
+then follow the Skill into problem reading and decomposition.
 Stop for my explicit confirmation at model selection, conclusions before paper
 writing, and final delivery.
 ```
 
-If the Skill is already installed, you can also invoke `$cumcm-workflow` in Codex or `/cumcm-workflow` in Claude Code. For first use, the prompt above is sufficient.
+If the Skill is already installed, conversation two may invoke `$cumcm-workflow` in Codex or `/cumcm-workflow` in Claude Code, but it should still provide the workflow, official-materials and new-project directories.
 
-The agent checks required dependencies on first use; computation uses MATLAB or Python, and paper compilation requires XeLaTeX. You do not need to prefill contracts or run every script yourself. Participate in the three human checkpoints: model selection, conclusions before paper writing, and final delivery. After an interruption, provide the output directory in the same project conversation and ask to resume cumcm-workflow.
+### 5. What you do after launch
+
+The first conversation leaves behind reusable workflow tools and an environment report. The second copies the official materials, initializes the project, and begins with problem reading and decomposition. You do not need to prefill contracts or run every script yourself. Review the current material and decide whether to continue at the three explicit human checkpoints. After an interruption, return to the second conversation, provide the output directory, and ask to “resume cumcm-workflow”.
 
 ## 1. What v0.6 is about
 
